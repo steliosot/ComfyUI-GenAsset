@@ -428,6 +428,53 @@ def looks_like_uuid(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", value.strip()))
 
 
+class GenAssetTestConnection:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "base_url": ("STRING", {"default": "http://127.0.0.1:3010"}),
+                "workspace_token": ("STRING", {"default": "", "multiline": False}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("workspace_name", "status_json")
+    FUNCTION = "test"
+    CATEGORY = CATEGORY
+
+    def test(self, base_url: str, workspace_token: str):
+        try:
+            if not workspace_token.strip():
+                raise RuntimeError("Workspace token is required.")
+            if not base_url.strip():
+                raise RuntimeError("GenAsset base URL is required.")
+            url = urllib.parse.urljoin(base_url.strip().rstrip("/") + "/", "api/v1/workspace")
+            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {workspace_token}"})
+            data = read_json(request)
+            workspace = data.get("workspace") or {}
+            status = {
+                "ok": True,
+                "base_url": base_url.strip().rstrip("/"),
+                "workspace": {
+                    "id": workspace.get("id", ""),
+                    "name": workspace.get("name", ""),
+                    "slug": workspace.get("slug", ""),
+                },
+                "counts": data.get("counts") or {},
+                "message": "Connected to GenAsset.",
+            }
+            return (str(workspace.get("name") or ""), json.dumps(status, indent=2))
+        except Exception as exc:
+            status = {
+                "ok": False,
+                "base_url": base_url.strip().rstrip("/"),
+                "error": str(exc),
+                "next_step": "Check the GenAsset URL, create a token in Settings > Tokens, and paste the full token into workspace_token.",
+            }
+            return ("", json.dumps(status, indent=2))
+
+
 class GenAssetSaveGeneration:
     @classmethod
     def INPUT_TYPES(cls):

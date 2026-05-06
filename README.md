@@ -41,6 +41,20 @@ What it captures automatically when the graph exposes it:
 
 It refuses to save blank or near-black frames. In that case it returns a status JSON explaining the rejection instead of creating a bad version.
 
+### Test GenAsset Connection
+
+Input:
+
+- `base_url`
+- `workspace_token`
+
+Output:
+
+- workspace name
+- status JSON
+
+Use this tiny node first when helping a user. It checks that ComfyUI can reach GenAsset and that the token is valid before they run a full image workflow.
+
 ### Load From GenAsset
 
 Input:
@@ -97,7 +111,8 @@ In GenAsset:
 1. Open `Settings`.
 2. Select `Tokens`.
 3. Create a workspace token.
-4. Paste it into the ComfyUI node.
+4. Paste it into `Test GenAsset Connection`.
+5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load Asset From GenAsset`.
 
 For local testing:
 
