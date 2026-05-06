@@ -1,0 +1,2 @@
+# No extra dependencies are required beyond the normal ComfyUI runtime.
+# The nodes use torch, numpy, and Pillow as provided by ComfyUI.

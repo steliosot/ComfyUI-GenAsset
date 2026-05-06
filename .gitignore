@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.DS_Store
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.log
+ComfyUI/
+output/
+input/
+temp/
+models/
