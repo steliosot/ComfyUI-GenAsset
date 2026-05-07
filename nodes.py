@@ -428,13 +428,31 @@ def looks_like_uuid(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", value.strip()))
 
 
+BASE_URL_PLACEHOLDER = "PASTE_URL"
+WORKSPACE_TOKEN_PLACEHOLDER = "PASTE_TOKEN"
+
+
+def require_base_url(base_url: str) -> str:
+    value = base_url.strip().rstrip("/")
+    if not value or value == BASE_URL_PLACEHOLDER:
+        raise RuntimeError("Paste your GenAsset URL into base_url.")
+    return value
+
+
+def require_workspace_token(workspace_token: str) -> str:
+    value = workspace_token.strip()
+    if not value or value == WORKSPACE_TOKEN_PLACEHOLDER:
+        raise RuntimeError("Paste your GenAsset workspace token into workspace_token.")
+    return value
+
+
 class GenAssetTestConnection:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "http://127.0.0.1:3010"}),
-                "workspace_token": ("STRING", {"default": "", "multiline": False}),
+                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
             }
         }
 
@@ -445,17 +463,15 @@ class GenAssetTestConnection:
 
     def test(self, base_url: str, workspace_token: str):
         try:
-            if not workspace_token.strip():
-                raise RuntimeError("Workspace token is required.")
-            if not base_url.strip():
-                raise RuntimeError("GenAsset base URL is required.")
-            url = urllib.parse.urljoin(base_url.strip().rstrip("/") + "/", "api/v1/workspace")
-            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {workspace_token}"})
+            clean_base_url = require_base_url(base_url)
+            clean_workspace_token = require_workspace_token(workspace_token)
+            url = urllib.parse.urljoin(clean_base_url + "/", "api/v1/workspace")
+            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
             data = read_json(request)
             workspace = data.get("workspace") or {}
             status = {
                 "ok": True,
-                "base_url": base_url.strip().rstrip("/"),
+                "base_url": clean_base_url,
                 "workspace": {
                     "id": workspace.get("id", ""),
                     "name": workspace.get("name", ""),
@@ -470,7 +486,7 @@ class GenAssetTestConnection:
                 "ok": False,
                 "base_url": base_url.strip().rstrip("/"),
                 "error": str(exc),
-                "next_step": "Check the GenAsset URL, create a token in Settings > Tokens, and paste the full token into workspace_token.",
+                "next_step": "Paste your GenAsset URL and workspace token, then run this node again.",
             }
             return ("", json.dumps(status, indent=2))
 
@@ -481,8 +497,8 @@ class GenAssetSaveGeneration:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "base_url": ("STRING", {"default": "http://127.0.0.1:3010"}),
-                "workspace_token": ("STRING", {"default": "", "multiline": False}),
+                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
                 "asset_name": ("STRING", {"default": "Untitled asset"}),
             },
             "hidden": {
@@ -508,10 +524,8 @@ class GenAssetSaveGeneration:
         unique_id: Any = None,
     ):
         try:
-            if not workspace_token.strip():
-                raise RuntimeError("Workspace token is required.")
-            if not base_url.strip():
-                raise RuntimeError("GenAsset base URL is required.")
+            clean_base_url = require_base_url(base_url)
+            clean_workspace_token = require_workspace_token(workspace_token)
             api_prompt = api_prompt_from_hidden(prompt)
             quality = image_quality_metrics(image)
             if quality["blank_or_black_rejected"]:
@@ -547,10 +561,10 @@ class GenAssetSaveGeneration:
                 "metadata": json.dumps(capture["metadata"]),
                 "source": "comfyui",
             }
-            url = urllib.parse.urljoin(base_url.strip().rstrip("/") + "/", "api/v1/generations")
+            url = urllib.parse.urljoin(clean_base_url + "/", "api/v1/generations")
             data = post_multipart(
                 url,
-                workspace_token,
+                clean_workspace_token,
                 fields,
                 {"image": ("generation.png", tensor_to_png_bytes(image), "image/png")},
             )
@@ -567,8 +581,8 @@ class GenAssetLoadVersion:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "http://127.0.0.1:3010"}),
-                "workspace_token": ("STRING", {"default": "", "multiline": False}),
+                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
                 "version_id": ("STRING", {"default": ""}),
             }
         }
@@ -580,15 +594,13 @@ class GenAssetLoadVersion:
 
     def load(self, base_url: str, workspace_token: str, version_id: str):
         try:
-            if not workspace_token.strip():
-                raise RuntimeError("Workspace token is required.")
+            clean_base_url = require_base_url(base_url)
+            clean_workspace_token = require_workspace_token(workspace_token)
             if not version_id.strip():
                 raise RuntimeError("Version id is required.")
-            if not base_url.strip():
-                raise RuntimeError("GenAsset base URL is required.")
             path = f"api/v1/versions/{urllib.parse.quote(version_id)}/load"
-            url = urllib.parse.urljoin(base_url.strip().rstrip("/") + "/", path)
-            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {workspace_token}"})
+            url = urllib.parse.urljoin(clean_base_url + "/", path)
+            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
             data = read_json(request)
             version = data.get("version", {})
             preview_url = version.get("signed_preview_url")
@@ -608,8 +620,8 @@ class GenAssetLoadAsset:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": "http://127.0.0.1:3010"}),
-                "workspace_token": ("STRING", {"default": "", "multiline": False}),
+                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
                 "asset_query": ("STRING", {"default": "", "tooltip": "Asset name, partial search text, or exact asset id."}),
             }
         }
@@ -621,17 +633,15 @@ class GenAssetLoadAsset:
 
     def load(self, base_url: str, workspace_token: str, asset_query: str):
         try:
-            if not workspace_token.strip():
-                raise RuntimeError("Workspace token is required.")
+            clean_base_url = require_base_url(base_url)
+            clean_workspace_token = require_workspace_token(workspace_token)
             query_text = asset_query.strip()
             if not query_text:
                 raise RuntimeError("Asset search text or asset id is required.")
-            if not base_url.strip():
-                raise RuntimeError("GenAsset base URL is required.")
-            root = base_url.strip().rstrip("/") + "/"
+            root = clean_base_url + "/"
             if looks_like_uuid(query_text):
                 url = urllib.parse.urljoin(root, f"api/v1/assets/{urllib.parse.quote(query_text)}")
-                request = urllib.request.Request(url, headers={"Authorization": f"Bearer {workspace_token}"})
+                request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
                 data = read_json(request)
                 asset = data.get("asset") or {}
                 versions = data.get("versions") or []
@@ -640,7 +650,7 @@ class GenAssetLoadAsset:
             else:
                 query = urllib.parse.urlencode({"search": query_text})
                 url = urllib.parse.urljoin(root, f"api/v1/assets?{query}")
-                request = urllib.request.Request(url, headers={"Authorization": f"Bearer {workspace_token}"})
+                request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
                 data = read_json(request)
                 assets = data.get("assets") or []
                 if not assets:

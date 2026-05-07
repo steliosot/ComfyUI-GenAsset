@@ -87,8 +87,8 @@
         "Node name for S&R": "GenAssetLoadAsset"
       },
       "widgets_values": [
-        "http://127.0.0.1:3010",
-        "PASTE_GENASSET_WORKSPACE_TOKEN_HERE",
+        "PASTE_URL",
+        "PASTE_TOKEN",
         "PASTE_ASSET_NAME_OR_ID_HERE"
       ]
     },
@@ -537,8 +537,8 @@
         "Node name for S&R": "GenAssetSaveGeneration"
       },
       "widgets_values": [
-        "http://127.0.0.1:3010",
-        "PASTE_GENASSET_WORKSPACE_TOKEN_HERE",
+        "PASTE_URL",
+        "PASTE_TOKEN",
         "PASTE_SAME_ASSET_NAME_FOR_NEW_VERSION"
       ]
     },

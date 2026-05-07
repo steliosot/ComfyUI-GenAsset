@@ -25,8 +25,8 @@
       ],
       "properties": {"Node name for S&R": "GenAssetLoadVersion"},
       "widgets_values": [
-        "http://127.0.0.1:3010",
-        "PASTE_GENASSET_WORKSPACE_TOKEN_HERE",
+        "PASTE_URL",
+        "PASTE_TOKEN",
         "PASTE_VERSION_ID_FROM_GENASSET_HERE"
       ]
     },

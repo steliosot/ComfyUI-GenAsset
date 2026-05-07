@@ -126,15 +126,15 @@ In GenAsset:
 4. Paste it into `Test GenAsset Connection`.
 5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load Asset From GenAsset`.
 
-For local testing:
+In every GenAsset node, replace the placeholders:
 
 ```text
-base_url = http://127.0.0.1:3010
-workspace_token = ga_...
+base_url = PASTE_URL
+workspace_token = PASTE_TOKEN
 asset_name = your reusable asset name
 ```
 
-For deployed GenAsset, replace `base_url` with your hosted app URL.
+Use your deployed GenAsset URL, for example a Cloud Run URL or custom domain, and the token generated in your workspace.
 
 ## Example Workflows
 

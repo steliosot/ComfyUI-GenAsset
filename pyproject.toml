@@ -1,6 +1,6 @@
 [project]
 name = "genasset"
-version = "1.0.0"
+version = "1.0.1"
 description = "ComfyUI nodes for saving, loading, and versioning GenAsset generations."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -17,4 +17,3 @@ Documentation = "https://github.com/steliosot/ComfyUI-GenAsset#readme"
 [tool.comfy]
 PublisherId = "steliosot"
 DisplayName = "GenAsset"
-
