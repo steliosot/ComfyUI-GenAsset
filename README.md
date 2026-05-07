@@ -93,6 +93,18 @@ Use this as a lightweight asset browser. `asset_query` can be an exact asset id,
 
 ## Install
 
+### ComfyUI Manager
+
+After the node pack is published to the Comfy Registry, open ComfyUI Manager and search for:
+
+```text
+GenAsset
+```
+
+Install the node pack, restart ComfyUI, and the nodes should appear under `genasset`.
+
+### Manual Git Install
+
 From your ComfyUI folder:
 
 ```bash

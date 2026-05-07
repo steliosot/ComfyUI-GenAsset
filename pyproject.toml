@@ -1,0 +1,20 @@
+[project]
+name = "genasset"
+version = "1.0.0"
+description = "ComfyUI nodes for saving, loading, and versioning GenAsset generations."
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = []
+classifiers = [
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Repository = "https://github.com/steliosot/ComfyUI-GenAsset"
+Documentation = "https://github.com/steliosot/ComfyUI-GenAsset#readme"
+"Bug Tracker" = "https://github.com/steliosot/ComfyUI-GenAsset/issues"
+
+[tool.comfy]
+PublisherId = "steliosot"
+DisplayName = "GenAsset"
+
