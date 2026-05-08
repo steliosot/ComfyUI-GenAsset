@@ -61,35 +61,25 @@ Input:
 
 - `base_url`
 - `workspace_token`
-- `version_id`
+- `asset_query` (optional)
+- `version_id` (optional)
 
 Output:
 
 - preview image
-- workflow JSON
-- metadata JSON
-- status JSON
-
-Use this when you copied an exact version id from GenAsset.
-
-### Load Asset From GenAsset
-
-Input:
-
-- `base_url`
-- `workspace_token`
-- `asset_query`
-
-Output:
-
-- current-version preview image
 - `asset_id`
 - `version_id`
 - workflow JSON
 - metadata JSON
 - status JSON
 
-Use this as a lightweight asset browser. `asset_query` can be an exact asset id, an exact asset name, or search text.
+Behavior:
+
+- If `version_id` is set: loads that exact version.
+- Else if `asset_query` is set: loads the current/latest version of the matched asset.
+- Else (both empty): loads the latest updated asset in the workspace.
+
+`asset_query` can be an exact asset id, exact asset name, or search text.
 
 ## Install
 
@@ -124,7 +114,7 @@ In GenAsset:
 2. Select `Tokens`.
 3. Create a workspace token.
 4. Paste it into `Test GenAsset Connection`.
-5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load Asset From GenAsset`.
+5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load From GenAsset`.
 
 The nodes default to hosted GenAsset. Paste your workspace token into every GenAsset node:
 
@@ -143,7 +133,7 @@ Example workflows are in [`workflows/`](workflows/):
 - `genasset_sdxl_save_generation.json`
   - Generate an image and save it to GenAsset.
 - `genasset_load_version.json`
-  - Load an exact GenAsset version and preview it.
+  - Load latest by default, or an exact version when `version_id` is set.
 - `genasset_img2img_load_edit_save_woman_cafe.json`
   - Load an asset, run img2img, and save the edit as the next version.
 
@@ -153,7 +143,7 @@ Typical round trip:
 Generate in ComfyUI
   -> Save To GenAsset
   -> Browse asset/version in GenAsset
-  -> Load Asset From GenAsset
+  -> Load From GenAsset
   -> VAE Encode
   -> KSampler
   -> VAE Decode
@@ -178,7 +168,7 @@ python scripts/smoke_import.py
 Expected result:
 
 ```text
-Loaded GenAsset nodes: GenAssetLoadAsset, GenAssetLoadVersion, GenAssetSaveGeneration
+Loaded GenAsset nodes: GenAssetLoadVersion, GenAssetSaveGeneration, GenAssetTestConnection
 ```
 
 ## License

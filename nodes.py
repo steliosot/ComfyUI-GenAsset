@@ -583,46 +583,17 @@ class GenAssetLoadVersion:
             "required": {
                 "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
-                "version_id": ("STRING", {"default": ""}),
-            }
-        }
-
-    RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("image", "workflow_json", "metadata_json", "status_json")
-    FUNCTION = "load"
-    CATEGORY = CATEGORY
-
-    def load(self, base_url: str, workspace_token: str, version_id: str):
-        try:
-            clean_base_url = require_base_url(base_url)
-            clean_workspace_token = require_workspace_token(workspace_token)
-            if not version_id.strip():
-                raise RuntimeError("Version id is required.")
-            path = f"api/v1/versions/{urllib.parse.quote(version_id)}/load"
-            url = urllib.parse.urljoin(clean_base_url + "/", path)
-            request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
-            data = read_json(request)
-            version = data.get("version", {})
-            preview_url = version.get("signed_preview_url")
-            if not preview_url:
-                raise RuntimeError("Version did not include a signed preview URL.")
-            image = pil_to_tensor(download_image(preview_url))
-            workflow_json = json.dumps(version.get("workflow_json") or {}, indent=2)
-            metadata_json = json.dumps(version.get("metadata") or {}, indent=2)
-            return (image, workflow_json, metadata_json, json.dumps(data, indent=2))
-        except Exception as exc:
-            status = {"error": str(exc)}
-            return (blank_image(), "{}", "{}", json.dumps(status, indent=2))
-
-
-class GenAssetLoadAsset:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
-                "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
-                "asset_query": ("STRING", {"default": "", "tooltip": "Asset name, partial search text, or exact asset id."}),
+                "asset_query": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "tooltip": "Optional. Asset id, exact name, or search text. Empty means latest asset in this workspace.",
+                    },
+                ),
+                "version_id": (
+                    "STRING",
+                    {"default": "", "tooltip": "Optional. When set, this exact version id is loaded."},
+                ),
             }
         }
 
@@ -631,56 +602,82 @@ class GenAssetLoadAsset:
     FUNCTION = "load"
     CATEGORY = CATEGORY
 
-    def load(self, base_url: str, workspace_token: str, asset_query: str):
+    def load(self, base_url: str, workspace_token: str, asset_query: str, version_id: str):
         try:
             clean_base_url = require_base_url(base_url)
             clean_workspace_token = require_workspace_token(workspace_token)
             query_text = asset_query.strip()
-            if not query_text:
-                raise RuntimeError("Asset search text or asset id is required.")
+            explicit_version_id = version_id.strip()
             root = clean_base_url + "/"
-            if looks_like_uuid(query_text):
-                url = urllib.parse.urljoin(root, f"api/v1/assets/{urllib.parse.quote(query_text)}")
+            load_mode = "latest"
+            selected_asset_id = ""
+            selected_version_id = ""
+
+            if explicit_version_id:
+                load_mode = "version_id"
+                path = f"api/v1/versions/{urllib.parse.quote(explicit_version_id)}/load"
+                url = urllib.parse.urljoin(root, path)
                 request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
                 data = read_json(request)
-                asset = data.get("asset") or {}
-                versions = data.get("versions") or []
-                current_id = asset.get("current_version_id")
-                version = next((item for item in versions if item.get("id") == current_id), versions[0] if versions else {})
+                version = data.get("version") or {}
+                selected_asset_id = str((data.get("asset") or {}).get("id") or version.get("asset_id") or "")
+                selected_version_id = str(version.get("id") or explicit_version_id)
             else:
-                query = urllib.parse.urlencode({"search": query_text})
-                url = urllib.parse.urljoin(root, f"api/v1/assets?{query}")
-                request = urllib.request.Request(url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
-                data = read_json(request)
-                assets = data.get("assets") or []
-                if not assets:
-                    raise RuntimeError(f"No GenAsset asset matched: {asset_query}")
-                exact = next((item for item in assets if str(item.get("name", "")).lower() == query_text.lower()), None)
-                asset = exact or assets[0]
-                version = asset.get("current_version") or {}
-            preview_url = version.get("signed_preview_url")
+                if looks_like_uuid(query_text):
+                    load_mode = "asset_id"
+                    asset_url = urllib.parse.urljoin(root, f"api/v1/assets/{urllib.parse.quote(query_text)}")
+                    asset_request = urllib.request.Request(asset_url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
+                    asset_data = read_json(asset_request)
+                    asset = asset_data.get("asset") or {}
+                    versions = asset_data.get("versions") or []
+                    current_id = asset.get("current_version_id")
+                    version = next((item for item in versions if item.get("id") == current_id), versions[0] if versions else {})
+                    selected_asset_id = str(asset.get("id") or query_text)
+                else:
+                    load_mode = "search" if query_text else "latest"
+                    query = urllib.parse.urlencode({"search": query_text}) if query_text else ""
+                    path = f"api/v1/assets?{query}" if query else "api/v1/assets"
+                    assets_url = urllib.parse.urljoin(root, path)
+                    assets_request = urllib.request.Request(assets_url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
+                    assets_data = read_json(assets_request)
+                    assets = assets_data.get("assets") or []
+                    if not assets:
+                        if query_text:
+                            raise RuntimeError(f"No GenAsset asset matched: {asset_query}")
+                        raise RuntimeError("No assets found in this workspace.")
+                    exact = next((item for item in assets if str(item.get("name", "")).lower() == query_text.lower()), None) if query_text else None
+                    asset = exact or assets[0]
+                    version = asset.get("current_version") or {}
+                    selected_asset_id = str(asset.get("id", ""))
+
+                selected_version_id = str(version.get("id", ""))
+                data = {
+                    "asset": {"id": selected_asset_id, "name": str(asset.get("name", "")), "version_count": asset.get("version_count", 0)},
+                    "version": {
+                        "id": selected_version_id,
+                        "version_number": version.get("version_number", 0),
+                        "workflow_json": version.get("workflow_json"),
+                        "metadata": version.get("metadata"),
+                    },
+                }
+
+            preview_url = (data.get("version") or {}).get("signed_preview_url") or version.get("signed_preview_url")
             if not preview_url:
-                raise RuntimeError("Matched asset did not include a signed current-version preview URL.")
+                raise RuntimeError("Matched version did not include a signed preview URL.")
             image = pil_to_tensor(download_image(preview_url))
-            workflow_json = json.dumps(version.get("workflow_json") or {}, indent=2)
-            metadata_json = json.dumps(version.get("metadata") or {}, indent=2)
+            workflow_json = json.dumps((data.get("version") or {}).get("workflow_json") or version.get("workflow_json") or {}, indent=2)
+            metadata_json = json.dumps((data.get("version") or {}).get("metadata") or version.get("metadata") or {}, indent=2)
             status = {
-                "asset": {
-                    "id": asset.get("id", ""),
-                    "name": asset.get("name", ""),
-                    "version_count": asset.get("version_count", 0),
-                },
-                "version": {
-                    "id": version.get("id", ""),
-                    "version_number": version.get("version_number", 0),
-                },
-                "matched_query": asset_query,
-                "load_mode": "asset_id" if looks_like_uuid(query_text) else "search",
+                "asset": {"id": selected_asset_id},
+                "version": {"id": selected_version_id},
+                "matched_query": query_text,
+                "load_mode": load_mode,
+                "defaults": {"version_id_optional": True, "asset_query_optional": True, "empty_query_loads": "latest_asset"},
             }
             return (
                 image,
-                str(asset.get("id", "")),
-                str(version.get("id", "")),
+                selected_asset_id,
+                selected_version_id,
                 workflow_json,
                 metadata_json,
                 json.dumps(status, indent=2),

@@ -15,18 +15,22 @@
       "inputs": [
         {"name": "base_url", "type": "STRING", "widget": {"name": "base_url"}, "link": null},
         {"name": "workspace_token", "type": "STRING", "widget": {"name": "workspace_token"}, "link": null},
+        {"name": "asset_query", "type": "STRING", "widget": {"name": "asset_query"}, "link": null},
         {"name": "version_id", "type": "STRING", "widget": {"name": "version_id"}, "link": null}
       ],
       "outputs": [
         {"name": "image", "type": "IMAGE", "links": [1], "slot_index": 0},
-        {"name": "workflow_json", "type": "STRING", "links": null, "slot_index": 1},
-        {"name": "metadata_json", "type": "STRING", "links": null, "slot_index": 2},
-        {"name": "status_json", "type": "STRING", "links": null, "slot_index": 3}
+        {"name": "asset_id", "type": "STRING", "links": null, "slot_index": 1},
+        {"name": "version_id", "type": "STRING", "links": null, "slot_index": 2},
+        {"name": "workflow_json", "type": "STRING", "links": null, "slot_index": 3},
+        {"name": "metadata_json", "type": "STRING", "links": null, "slot_index": 4},
+        {"name": "status_json", "type": "STRING", "links": null, "slot_index": 5}
       ],
       "properties": {"Node name for S&R": "GenAssetLoadVersion"},
       "widgets_values": [
         "https://genasset.xyz",
         "PASTE_TOKEN",
+        "",
         "PASTE_VERSION_ID_FROM_GENASSET_HERE"
       ]
     },
@@ -58,7 +62,7 @@
       "title": "GenAsset load workflow notes",
       "properties": {},
       "widgets_values": [
-        "# GenAsset load workflow\n\nPaste your workspace token and a version id from GenAsset. Queue this workflow to fetch the cached preview plus the generation JSON and metadata JSON from GenAsset.\n\nThis is useful after saving a generation in the web UI: copy a version id, load it here, then continue editing in ComfyUI."
+        "# GenAsset load workflow\n\nPaste your workspace token and choose one load mode:\n\n- Exact version: fill `version_id`.\n- Latest for one asset: leave `version_id` empty and set `asset_query`.\n- Latest in workspace: leave both `version_id` and `asset_query` empty.\n\nQueue this workflow to fetch the preview plus workflow/metadata JSON from GenAsset."
       ],
       "color": "#243",
       "bgcolor": "#355"
