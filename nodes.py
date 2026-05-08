@@ -428,13 +428,13 @@ def looks_like_uuid(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", value.strip()))
 
 
-BASE_URL_PLACEHOLDER = "PASTE_URL"
+DEFAULT_BASE_URL = "https://genasset.xyz"
 WORKSPACE_TOKEN_PLACEHOLDER = "PASTE_TOKEN"
 
 
 def require_base_url(base_url: str) -> str:
     value = base_url.strip().rstrip("/")
-    if not value or value == BASE_URL_PLACEHOLDER:
+    if not value:
         raise RuntimeError("Paste your GenAsset URL into base_url.")
     return value
 
@@ -451,7 +451,7 @@ class GenAssetTestConnection:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
             }
         }
@@ -497,7 +497,7 @@ class GenAssetSaveGeneration:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
                 "asset_name": ("STRING", {"default": "Untitled asset"}),
             },
@@ -581,7 +581,7 @@ class GenAssetLoadVersion:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
                 "version_id": ("STRING", {"default": ""}),
             }
@@ -620,7 +620,7 @@ class GenAssetLoadAsset:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "base_url": ("STRING", {"default": BASE_URL_PLACEHOLDER}),
+                "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
                 "asset_query": ("STRING", {"default": "", "tooltip": "Asset name, partial search text, or exact asset id."}),
             }

@@ -148,7 +148,7 @@
       ],
       "properties": {"Node name for S&R": "GenAssetSaveGeneration"},
       "widgets_values": [
-        "PASTE_URL",
+        "https://genasset.xyz",
         "PASTE_TOKEN",
         "Rain Woman Character"
       ]
