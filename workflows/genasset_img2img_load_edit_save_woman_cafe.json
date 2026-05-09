@@ -34,10 +34,10 @@
           "link": null
         },
         {
-          "name": "asset_query",
+          "name": "asset_id",
           "type": "STRING",
           "widget": {
-            "name": "asset_query"
+            "name": "asset_id"
           },
           "link": null
         },
@@ -97,7 +97,7 @@
       "widgets_values": [
         "https://genasset.xyz",
         "PASTE_TOKEN",
-        "PASTE_ASSET_NAME_OR_ID_HERE",
+        "PASTE_ASSET_ID_HERE",
         ""
       ]
     },
@@ -634,7 +634,7 @@
       "title": "GenAsset img2img workflow notes",
       "properties": {},
       "widgets_values": [
-        "# GenAsset img2img re-edit\n\nThis is the full GenAsset round trip.\n\n1. `Load From GenAsset` loads a saved version.\n   - Set `version_id` for an exact version.\n   - Or leave `version_id` empty and use `asset_query` to load the current/latest version.\n   - Or leave both empty to load the latest updated asset in the workspace.\n2. The loaded image goes into `VAE Encode`; this replaces the empty latent used in txt2img.\n3. `KSampler` runs img2img with `denoise = 0.55` so the prompt can relocate or restyle the asset while preserving structure.\n4. `Save To GenAsset` saves the edited image back as the next version.\n\nPaste your workspace token into both GenAsset nodes. Use the same asset name in `Save To GenAsset` when you want a new version on the same asset. The saved workflow JSON redacts workspace tokens automatically and the black-image guard prevents blank runs from becoming versions."
+        "# GenAsset img2img re-edit\n\nThis is the full GenAsset round trip.\n\n1. `Load Asset From GenAsset` loads a saved version.\n   - Set `version_id` for an exact version.\n   - Or leave `version_id` empty and use `asset_id` to load the current/latest version.\n   - Or leave both empty to load the latest updated asset in the workspace.\n2. The loaded image goes into `VAE Encode`; this replaces the empty latent used in txt2img.\n3. `KSampler` runs img2img with `denoise = 0.55` so the prompt can relocate or restyle the asset while preserving structure.\n4. `Save To GenAsset` saves the edited image back as the next version.\n\nPaste your workspace token into both GenAsset nodes. Use the same asset name in `Save To GenAsset` when you want a new version on the same asset. The saved workflow JSON redacts workspace tokens automatically and the black-image guard prevents blank runs from becoming versions."
       ]
     }
   ],

@@ -583,11 +583,11 @@ class GenAssetLoadVersion:
             "required": {
                 "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "workspace_token": ("STRING", {"default": WORKSPACE_TOKEN_PLACEHOLDER, "multiline": False}),
-                "asset_query": (
+                "asset_id": (
                     "STRING",
                     {
                         "default": "",
-                        "tooltip": "Optional. Asset id, exact name, or search text. Empty means latest asset in this workspace.",
+                        "tooltip": "Optional. Exact asset id. Empty means latest asset in this workspace.",
                     },
                 ),
                 "version_id": (
@@ -602,11 +602,11 @@ class GenAssetLoadVersion:
     FUNCTION = "load"
     CATEGORY = CATEGORY
 
-    def load(self, base_url: str, workspace_token: str, asset_query: str, version_id: str):
+    def load(self, base_url: str, workspace_token: str, asset_id: str, version_id: str):
         try:
             clean_base_url = require_base_url(base_url)
             clean_workspace_token = require_workspace_token(workspace_token)
-            query_text = asset_query.strip()
+            asset_id_text = asset_id.strip()
             explicit_version_id = version_id.strip()
             root = clean_base_url + "/"
             load_mode = "latest"
@@ -623,30 +623,26 @@ class GenAssetLoadVersion:
                 selected_asset_id = str((data.get("asset") or {}).get("id") or version.get("asset_id") or "")
                 selected_version_id = str(version.get("id") or explicit_version_id)
             else:
-                if looks_like_uuid(query_text):
+                if asset_id_text:
                     load_mode = "asset_id"
-                    asset_url = urllib.parse.urljoin(root, f"api/v1/assets/{urllib.parse.quote(query_text)}")
+                    asset_url = urllib.parse.urljoin(root, f"api/v1/assets/{urllib.parse.quote(asset_id_text)}")
                     asset_request = urllib.request.Request(asset_url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
                     asset_data = read_json(asset_request)
                     asset = asset_data.get("asset") or {}
                     versions = asset_data.get("versions") or []
                     current_id = asset.get("current_version_id")
                     version = next((item for item in versions if item.get("id") == current_id), versions[0] if versions else {})
-                    selected_asset_id = str(asset.get("id") or query_text)
+                    selected_asset_id = str(asset.get("id") or asset_id_text)
                 else:
-                    load_mode = "search" if query_text else "latest"
-                    query = urllib.parse.urlencode({"search": query_text}) if query_text else ""
-                    path = f"api/v1/assets?{query}" if query else "api/v1/assets"
+                    load_mode = "latest"
+                    path = "api/v1/assets"
                     assets_url = urllib.parse.urljoin(root, path)
                     assets_request = urllib.request.Request(assets_url, headers={"Authorization": f"Bearer {clean_workspace_token}"})
                     assets_data = read_json(assets_request)
                     assets = assets_data.get("assets") or []
                     if not assets:
-                        if query_text:
-                            raise RuntimeError(f"No GenAsset asset matched: {asset_query}")
                         raise RuntimeError("No assets found in this workspace.")
-                    exact = next((item for item in assets if str(item.get("name", "")).lower() == query_text.lower()), None) if query_text else None
-                    asset = exact or assets[0]
+                    asset = assets[0]
                     version = asset.get("current_version") or {}
                     selected_asset_id = str(asset.get("id", ""))
 
@@ -670,9 +666,9 @@ class GenAssetLoadVersion:
             status = {
                 "asset": {"id": selected_asset_id},
                 "version": {"id": selected_version_id},
-                "matched_query": query_text,
+                "matched_asset_id": asset_id_text,
                 "load_mode": load_mode,
-                "defaults": {"version_id_optional": True, "asset_query_optional": True, "empty_query_loads": "latest_asset"},
+                "defaults": {"version_id_optional": True, "asset_id_optional": True, "empty_asset_id_loads": "latest_asset"},
             }
             return (
                 image,

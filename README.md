@@ -55,13 +55,13 @@ Output:
 
 Use this tiny node first when helping a user. It checks that ComfyUI can reach GenAsset and that the token is valid before they run a full image workflow.
 
-### Load From GenAsset
+### Load Asset From GenAsset
 
 Input:
 
 - `base_url`
 - `workspace_token`
-- `asset_query` (optional)
+- `asset_id` (optional)
 - `version_id` (optional)
 
 Output:
@@ -76,10 +76,10 @@ Output:
 Behavior:
 
 - If `version_id` is set: loads that exact version.
-- Else if `asset_query` is set: loads the current/latest version of the matched asset.
+- Else if `asset_id` is set: loads the current/latest version of the matched asset.
 - Else (both empty): loads the latest updated asset in the workspace.
 
-`asset_query` can be an exact asset id, exact asset name, or search text.
+`asset_id` should be the exact asset id (UUID). Leave it empty to load the latest asset in the workspace.
 
 ## Install
 
@@ -114,7 +114,7 @@ In GenAsset:
 2. Select `Tokens`.
 3. Create a workspace token.
 4. Paste it into `Test GenAsset Connection`.
-5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load From GenAsset`.
+5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load Asset From GenAsset`.
 
 The nodes default to hosted GenAsset. Paste your workspace token into every GenAsset node:
 
@@ -143,7 +143,7 @@ Typical round trip:
 Generate in ComfyUI
   -> Save To GenAsset
   -> Browse asset/version in GenAsset
-  -> Load From GenAsset
+  -> Load Asset From GenAsset
   -> VAE Encode
   -> KSampler
   -> VAE Decode
