@@ -1,0 +1,196 @@
+{
+  "id": "",
+  "revision": 0,
+  "last_node_id": 3,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GenAssetUpsertAssetFields",
+      "pos": [
+        450,
+        -570
+      ],
+      "size": [
+        390,
+        235
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "base_url",
+          "name": "base_url",
+          "type": "STRING",
+          "widget": {
+            "name": "base_url"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "token",
+          "name": "token",
+          "type": "STRING",
+          "widget": {
+            "name": "token"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "asset_id",
+          "name": "asset_id",
+          "type": "STRING",
+          "widget": {
+            "name": "asset_id"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "tags_csv",
+          "name": "tags_csv",
+          "type": "STRING",
+          "widget": {
+            "name": "tags_csv"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "notes_md",
+          "name": "notes_md",
+          "type": "STRING",
+          "widget": {
+            "name": "notes_md"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "asset_id",
+          "name": "asset_id",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "asset_json",
+          "name": "asset_json",
+          "type": "STRING",
+          "links": [
+            1
+          ]
+        },
+        {
+          "localized_name": "status_json",
+          "name": "status_json",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GenAssetUpsertAssetFields"
+      },
+      "widgets_values": [
+        "https://genasset.xyz",
+        "ComfyUI/user/genasset.json",
+        "PASTE_ASSET_ID",
+        "cinematic, sdxl",
+        "Updated from Comfy workflow"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "DisplayAny",
+      "pos": [
+        870,
+        -570
+      ],
+      "size": [
+        430,
+        280
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "input",
+          "name": "input",
+          "type": "*",
+          "link": 1
+        },
+        {
+          "localized_name": "mode",
+          "name": "mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "mode"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "json",
+        ""
+      ]
+    },
+    {
+      "id": 3,
+      "type": "MarkdownNote",
+      "pos": [
+        -900,
+        520
+      ],
+      "size": [
+        980,
+        300
+      ],
+      "flags": {},
+      "order": 99,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "## Upsert Asset Tags Fields\n\nWhat it is:\nUpdates asset-level tags and notes.\n\nHow to use:\n1. Paste `asset_id`.\n2. Set `tags_csv` and optional `notes_md`.\n3. Queue."
+      ],
+      "title": "Upsert Asset Fields notes",
+      "color": "#1e3a8a",
+      "bgcolor": "#1d4e89"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      1,
+      2,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.72,
+      "offset": [
+        920.0,
+        560.0
+      ]
+    },
+    "node_versions": {}
+  },
+  "version": 0.4
+}

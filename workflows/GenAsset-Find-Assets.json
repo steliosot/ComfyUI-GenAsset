@@ -1,0 +1,196 @@
+{
+  "id": "",
+  "revision": 0,
+  "last_node_id": 3,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GenAssetFindAssets",
+      "pos": [
+        450,
+        -520
+      ],
+      "size": [
+        360,
+        210
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "base_url",
+          "name": "base_url",
+          "type": "STRING",
+          "widget": {
+            "name": "base_url"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "token",
+          "name": "token",
+          "type": "STRING",
+          "widget": {
+            "name": "token"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "search_query",
+          "name": "search_query",
+          "type": "STRING",
+          "widget": {
+            "name": "search_query"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "page",
+          "name": "page",
+          "type": "INT",
+          "widget": {
+            "name": "page"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "page_size",
+          "name": "page_size",
+          "type": "INT",
+          "widget": {
+            "name": "page_size"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "assets_json",
+          "name": "assets_json",
+          "type": "STRING",
+          "links": [
+            1
+          ]
+        },
+        {
+          "localized_name": "asset_ids_csv",
+          "name": "asset_ids_csv",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "status_json",
+          "name": "status_json",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GenAssetFindAssets"
+      },
+      "widgets_values": [
+        "https://genasset.xyz",
+        "ComfyUI/user/genasset.json",
+        "noir, sdxl",
+        1,
+        20
+      ]
+    },
+    {
+      "id": 2,
+      "type": "DisplayAny",
+      "pos": [
+        850,
+        -520
+      ],
+      "size": [
+        420,
+        260
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "input",
+          "name": "input",
+          "type": "*",
+          "link": 1
+        },
+        {
+          "localized_name": "mode",
+          "name": "mode",
+          "type": "COMBO",
+          "widget": {
+            "name": "mode"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "json",
+        ""
+      ]
+    },
+    {
+      "id": 3,
+      "type": "MarkdownNote",
+      "pos": [
+        -900,
+        520
+      ],
+      "size": [
+        980,
+        300
+      ],
+      "flags": {},
+      "order": 99,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "## Find Assets In GenAsset\n\nWhat it is:\nSearches assets by name/tags/prompt text.\n\nHow to use:\n1. Leave token as `ComfyUI/user/genasset.json`.\n2. Enter `search_query` (or keep empty to list recent).\n3. Queue.\n\nExpected:\n`assets_json` includes matching asset ids + names."
+      ],
+      "title": "Find Assets notes",
+      "color": "#1e3a8a",
+      "bgcolor": "#1d4e89"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.72,
+      "offset": [
+        920.0,
+        560.0
+      ]
+    },
+    "node_versions": {}
+  },
+  "version": 0.4
+}
