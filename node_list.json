@@ -1,0 +1,20 @@
+{
+  "GenAssetTestConnection": "Check that ComfyUI can reach GenAsset and that the workspace token is valid.",
+  "GenAssetSaveGeneration": "Save a generated image, workflow recipe, prompt, model, seed, and metadata to GenAsset.",
+  "GenAssetLoadVersion": "Load an asset or version image and metadata from GenAsset.",
+  "GenAssetLoadExactVersion": "Load one exact historical GenAsset version by version id.",
+  "GenAssetPatchVersionMetadata": "Patch metadata on an existing GenAsset version without uploading a new image.",
+  "GenAssetCompareVersions": "Compare two GenAsset versions and return their images and metadata differences.",
+  "GenAssetCreateBranchVersion": "Create a new GenAsset version that records a parent version relationship.",
+  "GenAssetLoadRecipeToWidgets": "Extract replay-friendly widget values from a stored GenAsset workflow recipe.",
+  "GenAssetFindAssets": "Search GenAsset assets in the current workspace.",
+  "GenAssetListAssetVersions": "List versions for a GenAsset asset.",
+  "GenAssetLoadCurrentVersion": "Load the current version for a GenAsset asset.",
+  "GenAssetPromoteVersion": "Promote a GenAsset version to current.",
+  "GenAssetDeleteVersion": "Delete a GenAsset version.",
+  "GenAssetForkAssetFromVersion": "Fork a GenAsset asset from an existing version.",
+  "GenAssetCreateAsset": "Create a GenAsset asset from ComfyUI.",
+  "GenAssetRenameAsset": "Rename a GenAsset asset.",
+  "GenAssetUpsertAssetFields": "Update GenAsset asset fields such as tags or metadata.",
+  "GenAssetAssetSummary": "Fetch summary information for a GenAsset asset."
+}

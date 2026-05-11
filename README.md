@@ -93,6 +93,10 @@ GenAsset
 
 Install the node pack, restart ComfyUI, and the nodes should appear under `genasset`.
 
+If you are loading a workflow that contains GenAsset nodes, ComfyUI-Manager's
+missing-node installer should resolve those node types to the `genasset`
+package from the default channel.
+
 ### Manual Git Install
 
 From your ComfyUI folder:
