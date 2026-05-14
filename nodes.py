@@ -521,12 +521,12 @@ def read_json(request: urllib.request.Request) -> dict[str, Any]:
         try:
             data = json.loads(payload)
         except Exception:
-            data = {"error": payload}
+            data = {"error": friendly_non_json_error(request, payload, exc.code)}
         raise RuntimeError(data.get("error") or f"HTTP {exc.code}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Could not reach GenAsset: {exc.reason}") from exc
     except json.JSONDecodeError as exc:
-        raise RuntimeError("GenAsset returned invalid JSON.") from exc
+        raise RuntimeError(friendly_non_json_error(request, "", None)) from exc
 
 
 def request_json(method: str, url: str, token: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -537,6 +537,24 @@ def request_json(method: str, url: str, token: str, payload: dict[str, Any] | No
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
     return read_json(request)
+
+
+def friendly_non_json_error(request: urllib.request.Request, payload: str, status_code: int | None) -> str:
+    url = getattr(request, "full_url", "")
+    if "api/v1/comfy/workflow-assist" in url:
+        base_url = url.split("/api/v1/comfy/workflow-assist", 1)[0]
+        if "<html" in payload.lower() or "<!doctype" in payload.lower() or status_code == 404:
+            return (
+                "GenAsset Workflow Assistant is not available on this GenAsset server yet. "
+                f"The ComfyUI node is installed, but {base_url}/api/v1/comfy/workflow-assist "
+                "did not return the assistant API. Deploy the latest GenAsset app, or continue "
+                "using Save To GenAsset manually."
+            )
+        return (
+            "GenAsset Workflow Assistant returned a non-JSON response. "
+            "Check that the GenAsset app is running the latest assistant API route."
+        )
+    return "GenAsset returned invalid JSON."
 
 
 def load_version_payload(base_url: str, workspace_token: str, version_id: str) -> dict[str, Any]:
@@ -1045,7 +1063,10 @@ class GenAssetWorkflowAssistant:
             status = {"ok": False, "error": str(exc)}
             status_json = json.dumps(status, indent=2)
             summary = f"ERROR: {str(exc)}"
-            return ("", "", "", "", "", "", "{}", "[]", status_json, summary)
+            return {
+                "ui": {"text": [summary]},
+                "result": ("", "", "", "", "", "", "{}", "[]", status_json, summary),
+            }
 
 
 class GenAssetSaveGeneration:
