@@ -21,7 +21,17 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 classes = sorted(module.NODE_CLASS_MAPPINGS)
 
-expected = {"GenAssetTestConnection", "GenAssetSaveGeneration", "GenAssetLoadVersion"}
+expected = {
+    "GenAssetTestConnection",
+    "GenAssetWorkflowAssistant",
+    "GenAssetSaveGeneration",
+    "GenAssetLoadVersion",
+    "GenAssetLoadExactVersion",
+    "GenAssetPatchVersionMetadata",
+    "GenAssetCompareVersions",
+    "GenAssetCreateBranchVersion",
+    "GenAssetLoadRecipeToWidgets",
+}
 missing = expected.difference(classes)
 if missing:
     raise SystemExit(f"Missing node mappings: {', '.join(sorted(missing))}")

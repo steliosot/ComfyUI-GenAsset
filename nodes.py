@@ -694,6 +694,118 @@ def parse_tags_csv(value: str) -> list[str]:
     return out
 
 
+def merge_unique_tags(*tag_lists: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for tag_list in tag_lists:
+        for tag in tag_list:
+            text = str(tag or "").strip()
+            if not text:
+                continue
+            key = text.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(text)
+    return out[:32]
+
+
+def deep_merge_dict(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, value in patch.items():
+        if isinstance(out.get(key), dict) and isinstance(value, dict):
+            out[key] = deep_merge_dict(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def compact_workflow_context(
+    api_prompt: dict[str, Any],
+    extra_pnginfo: Any,
+    unique_id: Any,
+    image: torch.Tensor | None = None,
+    asset_name_hint: str = "",
+    asset_id_hint: str = "",
+) -> dict[str, Any]:
+    uid = str(unique_id[0] if isinstance(unique_id, (list, tuple)) and unique_id else unique_id or "")
+    assistant_node = api_prompt.get(uid) if uid else None
+    image_source_id = input_link(assistant_node, "image") if isinstance(assistant_node, dict) else None
+    if image_source_id:
+        upstream_ids = walk_upstream(api_prompt, image_source_id)
+    else:
+        upstream_ids = list(api_prompt.keys())
+    sampler_id, sampler = find_first_node_by_class(
+        api_prompt,
+        upstream_ids,
+        {"KSampler", "KSamplerAdvanced", "SamplerCustom", "SamplerCustomAdvanced"},
+    )
+    positive_prompt, negative_prompt = collect_prompt_texts(api_prompt, sampler, upstream_ids)
+    sampler_metadata = collect_sampler_metadata(sampler)
+    model = collect_checkpoint_name(api_prompt, upstream_ids)
+    latent = collect_latent_metadata(api_prompt, upstream_ids)
+    image_info: dict[str, Any] = {}
+    if image is not None:
+        try:
+            image_batch = _ensure_image_batch(image)
+            image_info = {
+                "width": int(image_batch.shape[2]),
+                "height": int(image_batch.shape[1]),
+                "batch_size": int(image_batch.shape[0]),
+            }
+        except Exception:
+            image_info = {}
+    save_nodes = []
+    genasset_nodes = []
+    for node_id, node in api_prompt.items():
+        if not isinstance(node, dict):
+            continue
+        klass = node_class(node)
+        if klass.startswith("GenAsset"):
+            inputs = node.get("inputs") if isinstance(node.get("inputs"), dict) else {}
+            compact_inputs = {}
+            for key, value in inputs.items():
+                if str(key).lower() in {"token", "workspace_token", "authorization", "api_key", "secret"}:
+                    compact_inputs[key] = "[redacted]"
+                elif isinstance(value, (str, int, float, bool)) or value is None:
+                    compact_inputs[key] = value
+                elif isinstance(value, (list, tuple)):
+                    compact_inputs[key] = list(value[:2])
+            record = {"id": str(node_id), "class_type": klass, "inputs": compact_inputs}
+            genasset_nodes.append(record)
+            if klass == "GenAssetSaveGeneration":
+                save_nodes.append(record)
+    workflow = workflow_from_extra(extra_pnginfo)
+    return {
+        "assistant_node_id": uid,
+        "asset_name_hint": asset_name_hint.strip(),
+        "asset_id_hint": asset_id_hint.strip(),
+        "prompt": positive_prompt,
+        "negative_prompt": negative_prompt,
+        "model": model,
+        "seed": sampler_metadata.get("seed", 0),
+        "sampler": sampler_metadata,
+        "latent": latent,
+        "image": image_info,
+        "capture": {
+            "image_source_node_id": image_source_id,
+            "sampler_node_id": sampler_id,
+            "upstream_node_ids": upstream_ids,
+        },
+        "genasset_nodes": genasset_nodes,
+        "save_nodes": save_nodes,
+        "workflow_json": redact_secret_fields(
+            {
+                "api_prompt": api_prompt,
+                "workflow": workflow,
+                "captured_from_node_id": uid,
+                "captured_upstream_node_ids": upstream_ids,
+            }
+        ),
+        "auto_tags": derive_tags(positive_prompt, model),
+    }
+
+
 def compact_asset_row(asset: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(asset.get("id") or ""),
@@ -776,6 +888,109 @@ class GenAssetTestConnection:
             return {"ui": {"text": [summary]}, "result": ("", normalized, summary, "error", normalized)}
 
 
+class GenAssetWorkflowAssistant:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
+                "token": ("STRING", {"default": TOKEN_FILE_HINT, "multiline": False}),
+            },
+            "optional": {
+                "image": ("IMAGE",),
+                "asset_name_hint": ("STRING", {"default": "", "tooltip": "Optional starting point for the suggested asset name."}),
+                "asset_id_hint": ("STRING", {"default": "", "tooltip": "Optional existing asset id to prefer."}),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "unique_id": "UNIQUE_ID",
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = (
+        "asset_name",
+        "asset_id",
+        "tags_csv",
+        "intent",
+        "notes_md",
+        "version_label",
+        "metadata_json",
+        "warnings_json",
+        "status_json",
+        "summary",
+    )
+    FUNCTION = "assist"
+    CATEGORY = CATEGORY
+    OUTPUT_NODE = True
+
+    def assist(
+        self,
+        base_url: str,
+        token: str,
+        image: torch.Tensor | None = None,
+        asset_name_hint: str = "",
+        asset_id_hint: str = "",
+        prompt: Any = None,
+        extra_pnginfo: Any = None,
+        unique_id: Any = None,
+    ):
+        try:
+            clean_base_url = require_base_url(base_url)
+            clean_workspace_token, token_source, token_source_ref = resolve_workspace_token(token)
+            api_prompt = api_prompt_from_hidden(prompt)
+            context = compact_workflow_context(
+                api_prompt=api_prompt,
+                extra_pnginfo=extra_pnginfo,
+                unique_id=unique_id,
+                image=image,
+                asset_name_hint=asset_name_hint,
+                asset_id_hint=asset_id_hint,
+            )
+            context["client"] = {
+                "source": "comfyui-genasset",
+                "token_source": token_source,
+                "token_source_ref": token_source_ref,
+            }
+            url = urllib.parse.urljoin(clean_base_url + "/", "api/v1/comfy/workflow-assist")
+            data = request_json("POST", url, clean_workspace_token, context)
+            suggestions = data.get("suggestions") if isinstance(data.get("suggestions"), dict) else {}
+            warnings = data.get("warnings") if isinstance(data.get("warnings"), list) else []
+            asset_name = str(suggestions.get("asset_name") or data.get("asset_name") or asset_name_hint or "Untitled asset").strip()
+            asset_id = str(suggestions.get("asset_id") or asset_id_hint or "").strip()
+            tags = suggestions.get("tags")
+            tags_csv = ", ".join(str(tag).strip() for tag in tags if str(tag).strip()) if isinstance(tags, list) else str(suggestions.get("tags_csv") or "")
+            intent = str(suggestions.get("intent") or "").strip()
+            notes_md = str(suggestions.get("notes_md") or "").strip()
+            version_label = str(suggestions.get("version_label") or "").strip()
+            metadata = suggestions.get("metadata") if isinstance(suggestions.get("metadata"), dict) else {}
+            metadata_json = json.dumps(metadata, indent=2)
+            warnings_json = json.dumps(warnings, indent=2)
+            status = {
+                "ok": bool(data.get("ok", True)),
+                "source": data.get("source") or "genasset",
+                "workspace": data.get("workspace") or {},
+                "warning_count": len(warnings),
+                "token_source": token_source,
+                "token_source_ref": token_source_ref,
+            }
+            summary = str(data.get("summary") or f"Suggested asset name: {asset_name}").strip()
+            if token_source == "genasset.json":
+                summary += key_loaded_note(token_source, token_source_ref)
+            status_json = json.dumps(status, indent=2)
+            return {
+                "ui": {"text": [summary, warnings_json]},
+                "result": (asset_name, asset_id, tags_csv, intent, notes_md, version_label, metadata_json, warnings_json, status_json, summary),
+            }
+        except Exception as exc:
+            _log_error("WorkflowAssistant", exc)
+            status = {"ok": False, "error": str(exc)}
+            status_json = json.dumps(status, indent=2)
+            summary = f"ERROR: {str(exc)}"
+            return ("", "", "", "", "", "", "{}", "[]", status_json, summary)
+
+
 class GenAssetSaveGeneration:
     @classmethod
     def INPUT_TYPES(cls):
@@ -785,6 +1000,15 @@ class GenAssetSaveGeneration:
                 "base_url": ("STRING", {"default": DEFAULT_BASE_URL}),
                 "token": ("STRING", {"default": TOKEN_FILE_HINT, "multiline": False}),
                 "asset_name": ("STRING", {"default": "Untitled asset"}),
+            },
+            "optional": {
+                "asset_id": ("STRING", {"default": "", "tooltip": "Optional. Save to this existing GenAsset asset id."}),
+                "tags_csv": ("STRING", {"default": "", "tooltip": "Optional. Extra tags to merge with auto-captured tags."}),
+                "intent": ("STRING", {"default": "", "tooltip": "Optional. Workflow intent, for example txt2img, img2img, inpaint, or upscale."}),
+                "notes_md": ("STRING", {"default": "", "multiline": True, "tooltip": "Optional. Asset-level notes to save with this generation."}),
+                "version_label": ("STRING", {"default": "", "tooltip": "Optional. Short label stored in version metadata."}),
+                "metadata_json": ("STRING", {"default": "{}", "multiline": True, "tooltip": "Optional. Extra JSON metadata merged into captured metadata."}),
+                "source": ("STRING", {"default": "comfyui", "tooltip": "Optional source label. Defaults to comfyui."}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -804,6 +1028,13 @@ class GenAssetSaveGeneration:
         base_url: str,
         token: str,
         asset_name: str,
+        asset_id: str = "",
+        tags_csv: str = "",
+        intent: str = "",
+        notes_md: str = "",
+        version_label: str = "",
+        metadata_json: str = "{}",
+        source: str = "comfyui",
         prompt: Any = None,
         extra_pnginfo: Any = None,
         unique_id: Any = None,
@@ -834,29 +1065,43 @@ class GenAssetSaveGeneration:
                 "black_image_guard": "passed",
                 "black_image_guard_rule": quality["rule"],
             }
+            extra_metadata = parse_json(metadata_json, {})
+            if not isinstance(extra_metadata, dict):
+                extra_metadata = {}
+            label_text = version_label.strip()
+            notes_text = notes_md.strip()
+            assistant_metadata = {}
+            if label_text:
+                assistant_metadata["version_label"] = label_text
+            if notes_text:
+                assistant_metadata["notes_md"] = notes_text
+            if assistant_metadata:
+                extra_metadata = deep_merge_dict(extra_metadata, {"genasset_assistant": assistant_metadata})
+            if extra_metadata:
+                capture["metadata"] = deep_merge_dict(capture["metadata"], extra_metadata)
+            tags = merge_unique_tags(capture.get("tags", []), parse_tags_csv(tags_csv))
+            input_image_files = collect_input_image_files(api_prompt, capture["metadata"]["capture"]["upstream_node_ids"])
             fields = {
                 "asset_name": asset_name,
-                "asset_id": "",
+                "asset_id": asset_id.strip(),
                 "prompt": capture["prompt"],
                 "negative_prompt": capture["negative_prompt"],
                 "workflow_json": json.dumps(capture["workflow_json"]),
                 "model": capture["model"],
                 "seed": str(capture["seed"]),
-                "tags": ", ".join(capture.get("tags", [])),
-                "intent": "",
+                "tags": ", ".join(tags),
+                "intent": intent.strip(),
                 "metadata": json.dumps(capture["metadata"]),
-                "source": "comfyui",
+                "source": source.strip() or "comfyui",
+                "notes_md": notes_text,
+                "version_label": label_text,
             }
-            files: list[tuple[str, FilePart]] = [
-                ("image", ("generation.png", tensor_to_png_bytes(image), "image/png")),
-            ]
-            files.extend(collect_input_image_files(api_prompt, capture["metadata"]["capture"]["upstream_node_ids"]))
             url = urllib.parse.urljoin(clean_base_url + "/", "api/v1/generations")
             data = post_multipart(
                 url,
                 clean_workspace_token,
                 fields,
-                files,
+                [("image", ("generation.png", tensor_to_png_bytes(image), "image/png")), *input_image_files],
             )
             out_asset_id = data.get("asset", {}).get("id", "")
             out_version_id = data.get("version", {}).get("id", "")

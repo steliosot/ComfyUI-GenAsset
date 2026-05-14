@@ -17,10 +17,12 @@ from .nodes import (
     GenAssetSaveGeneration,
     GenAssetTestConnection,
     GenAssetUpsertAssetFields,
+    GenAssetWorkflowAssistant,
 )
 
 NODE_CLASS_MAPPINGS = {
     "GenAssetTestConnection": GenAssetTestConnection,
+    "GenAssetWorkflowAssistant": GenAssetWorkflowAssistant,
     "GenAssetSaveGeneration": GenAssetSaveGeneration,
     "GenAssetLoadVersion": GenAssetLoadVersion,
     "GenAssetLoadExactVersion": GenAssetLoadExactVersion,
@@ -42,6 +44,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "GenAssetTestConnection": "Test GenAsset Connection",
+    "GenAssetWorkflowAssistant": "GenAsset Workflow Assistant",
     "GenAssetSaveGeneration": "Save To GenAsset",
     "GenAssetLoadVersion": "Load Asset From GenAsset",
     "GenAssetLoadExactVersion": "Load Version From GenAsset",
