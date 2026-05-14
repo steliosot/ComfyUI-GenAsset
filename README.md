@@ -12,23 +12,33 @@ Nodes appear under the ComfyUI category:
 genasset
 ```
 
-### Save To GenAsset
+### Node Reference
 
-Input:
+| Node | What it does | Inputs | Outputs |
+| --- | --- | --- | --- |
+| `Test GenAsset Connection` | Checks that ComfyUI can reach GenAsset and that the workspace token is valid. Use this first when setting up a workflow. | `base_url`, `token` | `workspace_name`, `status_json`, `summary`, `state`, `normalized_status_json` |
+| `GenAsset Workflow Assistant` | Validates a workflow and suggests optional prefill fields such as asset name, tags, intent, notes, version label, and metadata. Wire its outputs into `Save To GenAsset`. | `base_url`, `token`; optional `image`, `asset_name_hint`, `asset_id_hint` | `asset_name`, `asset_id`, `tags_csv`, `intent`, `notes_md`, `version_label`, `metadata_json`, `warnings_json`, `status_json`, `summary` |
+| `Save To GenAsset` | Saves a generated image as a GenAsset version with prompt, model, seed, workflow JSON, metadata, and optional assistant-prefilled fields. | `image`, `base_url`, `token`, `asset_name`; optional `asset_id`, `tags_csv`, `intent`, `notes_md`, `version_label`, `metadata_json`, `source` | image passthrough, `asset_id`, `version_id`, `status_json` |
+| `Load Asset From GenAsset` | Loads a preview image and recipe metadata. Can load an exact version, an asset's current/latest version, or the latest updated asset in the workspace. | `base_url`, `token`, optional `asset_id`, optional `version_id` | `image`, `asset_id`, `version_id`, `workflow_json`, `metadata_json`, `status_json` |
+| `Load Version From GenAsset` | Loads one exact historical version by version id. | `base_url`, `token`, `version_id` | `image`, `asset_id`, `version_id`, `workflow_json`, `metadata_json`, `status_json` |
+| `Save Metadata Patch To GenAsset` | Merges a JSON metadata patch into an existing version without uploading a new image. | `base_url`, `token`, `version_id`, `metadata_patch_json` | `version_id`, `metadata_json`, `status_json` |
+| `Compare Two GenAsset Versions` | Loads two versions and returns both previews plus a JSON diff of key recipe fields. | `base_url`, `token`, `left_version_id`, `right_version_id` | `left_image`, `right_image`, `diff_json`, `status_json` |
+| `Create Branch Version In GenAsset` | Creates a new version connected to a parent version, useful for branching experiments. | `image`, `base_url`, `token`, `asset_id`, `parent_version_id`, `asset_name`, `prompt_text`, `negative_prompt_text`, `model_name`, `seed`, `tags_csv`, `intent`, `extra_metadata_json` | image passthrough, `asset_id`, `version_id`, `status_json` |
+| `Load Recipe To Widgets` | Extracts replay-friendly widget values from stored `workflow_json` and `metadata_json`. | `workflow_json`, `metadata_json` | `prompt_text`, `negative_prompt_text`, `model_name`, `seed`, `steps`, `cfg`, `sampler_name`, `scheduler`, `denoise`, `width`, `height`, `status_json` |
+| `Find Assets In GenAsset` | Searches assets in the current workspace. | `base_url`, `token`, `search_query`, `page`, `page_size` | `assets_json`, `asset_ids_csv`, `status_json` |
+| `List Asset Versions In GenAsset` | Lists versions for a specific asset. | `base_url`, `token`, `asset_id`, `max_versions` | `versions_json`, `version_ids_csv`, `status_json` |
+| `Load Current Version For Asset` | Loads the current/latest version for one asset id. | `base_url`, `token`, `asset_id` | `image`, `asset_id`, `version_id`, `workflow_json`, `metadata_json`, `status_json` |
+| `Promote Version In GenAsset` | Promotes a selected version to be the current version for an asset. | `base_url`, `token`, `asset_id`, `version_id` | `asset_id`, `version_id`, `status_json` |
+| `Delete Version In GenAsset` | Deletes a GenAsset version. | `base_url`, `token`, `version_id`, `confirm_delete` | `version_id`, `status_json` |
+| `Fork Asset From Version In GenAsset` | Creates a new asset from an existing source version. | `base_url`, `token`, `source_version_id`, `new_asset_name`, `prompt_suffix`, `negative_prompt_override`, `tags_csv`, `intent`, `extra_metadata_json` | `image`, `asset_id`, `version_id`, `status_json` |
+| `Create Asset In GenAsset` | Creates a new GenAsset asset and initial version from a supplied image. | `image`, `base_url`, `token`, `asset_name`, `prompt_text`, `negative_prompt_text`, `model_name`, `seed`, `tags_csv`, `intent`, `extra_metadata_json` | image passthrough, `asset_id`, `version_id`, `status_json` |
+| `Rename Asset In GenAsset` | Renames an existing asset. | `base_url`, `token`, `asset_id`, `new_name` | `asset_id`, `asset_name`, `status_json` |
+| `Upsert Asset Tags Fields` | Updates asset-level fields such as tags and notes. | `base_url`, `token`, `asset_id`, `tags_csv`, `notes_md` | `asset_id`, `asset_json`, `status_json` |
+| `Asset Summary In GenAsset` | Fetches compact summary information for one asset. | `base_url`, `token`, `asset_id` | `summary`, `asset_json`, `status_json` |
 
-- `IMAGE`
-- `base_url`
-- `workspace_token`
-- `asset_name`
+### Save Capture
 
-Output:
-
-- image passthrough
-- `asset_id`
-- `version_id`
-- `status_json`
-
-What it captures automatically when the graph exposes it:
+`Save To GenAsset` captures the following automatically when the graph exposes it:
 
 - prompt and negative prompt
 - checkpoint/model name
@@ -42,39 +52,7 @@ What it captures automatically when the graph exposes it:
 
 It refuses to save blank or near-black frames. In that case it returns a status JSON explaining the rejection instead of creating a bad version.
 
-### Test GenAsset Connection
-
-Input:
-
-- `base_url`
-- `workspace_token`
-
-Output:
-
-- workspace name
-- status JSON
-
-Use this tiny node first when helping a user. It checks that ComfyUI can reach GenAsset and that the token is valid before they run a full image workflow.
-
-### Load Asset From GenAsset
-
-Input:
-
-- `base_url`
-- `workspace_token`
-- `asset_id` (optional)
-- `version_id` (optional)
-
-Output:
-
-- preview image
-- `asset_id`
-- `version_id`
-- workflow JSON
-- metadata JSON
-- status JSON
-
-Behavior:
+### Load Behavior
 
 - If `version_id` is set: loads that exact version.
 - Else if `asset_id` is set: loads the current/latest version of the matched asset.
@@ -121,12 +99,21 @@ In GenAsset:
 4. Paste it into `Test GenAsset Connection`.
 5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load Asset From GenAsset`.
 
-The nodes default to hosted GenAsset. Paste your workspace token into every GenAsset node:
+The nodes default to hosted GenAsset. Paste your workspace token into every GenAsset node's `token` field, or keep the default `ComfyUI/user/genasset.json` and create that file in your ComfyUI user folder.
 
 ```text
 base_url = https://genasset.xyz
-workspace_token = PASTE_TOKEN
+token = ComfyUI/user/genasset.json
 asset_name = your reusable asset name
+```
+
+Recommended `user/genasset.json` format:
+
+```json
+{
+  "base_url": "https://genasset.xyz",
+  "workspace_token": "PASTE_TOKEN"
+}
 ```
 
 For local development, replace `base_url` with your local app URL, for example `http://127.0.0.1:3010`.
@@ -173,7 +160,7 @@ python scripts/smoke_import.py
 Expected result:
 
 ```text
-Loaded GenAsset nodes: GenAssetLoadVersion, GenAssetSaveGeneration, GenAssetTestConnection
+Loaded GenAsset nodes: GenAssetAssetSummary, ..., GenAssetWorkflowAssistant
 ```
 
 ## License
