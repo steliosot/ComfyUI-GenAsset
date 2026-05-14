@@ -41,6 +41,7 @@ genasset
 `Save To GenAsset` captures the following automatically when the graph exposes it:
 
 - prompt and negative prompt
+- Qwen/Kontext edit prompts from prompt-bearing nodes
 - checkpoint/model name
 - seed, steps, cfg, sampler, scheduler, denoise
 - image size and batch size

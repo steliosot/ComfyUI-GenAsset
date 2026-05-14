@@ -179,16 +179,71 @@ def collect_prompt_texts(api_prompt: dict[str, Any], sampler: dict[str, Any] | N
     if positive_text or negative_text:
         return positive_text, negative_text
 
-    clip_nodes = find_nodes_by_class(api_prompt, upstream_ids, {"CLIPTextEncode", "CLIPTextEncodeSDXL", "BNK_CLIPTextEncodeAdvanced"})
+    clip_nodes = find_nodes_by_class(
+        api_prompt,
+        upstream_ids,
+        {
+            "CLIPTextEncode",
+            "CLIPTextEncodeSDXL",
+            "BNK_CLIPTextEncodeAdvanced",
+            "TextEncodeQwenImageEdit",
+            "TextEncodeQwenImageEditPlus",
+            "TextEncodeZImageOmni",
+        },
+    )
     texts = []
     for _, node in clip_nodes:
-        text = node.get("inputs", {}).get("text") if isinstance(node.get("inputs"), dict) else ""
-        if isinstance(text, str) and text.strip():
-            texts.append(text.strip())
+        text = prompt_text_from_inputs(node.get("inputs"))
+        if text:
+            texts.append(text)
     if texts:
         positive_text = texts[0]
     if len(texts) > 1:
         negative_text = texts[1]
+    if positive_text or negative_text:
+        return positive_text, negative_text
+    return collect_prompt_texts_from_inputs(api_prompt, upstream_ids)
+
+
+def prompt_text_from_inputs(inputs: Any) -> str:
+    if not isinstance(inputs, dict):
+        return ""
+    for key in ("prompt", "positive", "text", "user_prompt", "prompt_text", "caption", "instruction", "instructions"):
+        value = inputs.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    parts = []
+    for key in ("text_g", "text_l", "clip_l", "clip_g", "t5xxl", "llama"):
+        value = inputs.get(key)
+        if isinstance(value, str) and value.strip():
+            parts.append(value.strip())
+    return " ".join(dict.fromkeys(parts)).strip()
+
+
+def negative_prompt_text_from_inputs(inputs: Any) -> str:
+    if not isinstance(inputs, dict):
+        return ""
+    for key in ("negative", "negative_prompt", "negative_prompt_text", "text_neg", "text_neg_g", "text_neg_l"):
+        value = inputs.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def collect_prompt_texts_from_inputs(api_prompt: dict[str, Any], upstream_ids: list[str]) -> tuple[str, str]:
+    positive_text = ""
+    negative_text = ""
+    for node_id in upstream_ids:
+        node = api_prompt.get(node_id)
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not positive_text:
+            positive_text = prompt_text_from_inputs(inputs)
+        if not negative_text:
+            negative_text = negative_prompt_text_from_inputs(inputs)
+        if positive_text and negative_text:
+            break
     return positive_text, negative_text
 
 
@@ -199,15 +254,17 @@ def text_from_condition(api_prompt: dict[str, Any], node_id: str | None) -> str:
     if not isinstance(node, dict):
         return ""
     inputs = node.get("inputs")
-    if isinstance(inputs, dict) and isinstance(inputs.get("text"), str):
-        return inputs["text"]
+    text = prompt_text_from_inputs(inputs)
+    if text:
+        return text
     for upstream in walk_upstream(api_prompt, str(node_id), limit=20):
         upstream_node = api_prompt.get(upstream)
         if not isinstance(upstream_node, dict):
             continue
         upstream_inputs = upstream_node.get("inputs")
-        if isinstance(upstream_inputs, dict) and isinstance(upstream_inputs.get("text"), str):
-            return upstream_inputs["text"]
+        text = prompt_text_from_inputs(upstream_inputs)
+        if text:
+            return text
     return ""
 
 
