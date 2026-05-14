@@ -35,6 +35,7 @@ What it captures automatically when the graph exposes it:
 - seed, steps, cfg, sampler, scheduler, denoise
 - image size and batch size
 - upstream node ids
+- input images from upstream `LoadImage` nodes, uploaded as GenAsset input artifacts when the files are available in the ComfyUI input folder
 - ComfyUI API prompt and workflow JSON, with token-like fields redacted
 - basic tags derived from the prompt/model
 - image quality metrics

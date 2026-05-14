@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import mimetypes
 import os
 import re
 import urllib.error
@@ -17,6 +18,7 @@ from PIL import Image
 
 
 CATEGORY = "genasset"
+FilePart = tuple[str, bytes, str]
 
 
 def _ensure_image_batch(image: torch.Tensor) -> torch.Tensor:
@@ -247,6 +249,50 @@ def collect_latent_metadata(api_prompt: dict[str, Any], upstream_ids: list[str])
     return {}
 
 
+def comfy_input_image_path(image_name: str) -> Path | None:
+    if not image_name.strip():
+        return None
+    try:
+        import folder_paths  # type: ignore
+
+        path = Path(folder_paths.get_annotated_filepath(image_name))
+        if path.is_file():
+            return path
+    except Exception:
+        pass
+
+    for base in (Path.cwd() / "input", Path.cwd()):
+        path = base / image_name
+        if path.is_file():
+            return path
+    return None
+
+
+def collect_input_image_files(api_prompt: dict[str, Any], upstream_ids: list[str]) -> list[tuple[str, FilePart]]:
+    files: list[tuple[str, FilePart]] = []
+    seen: set[str] = set()
+    for node_id, node in find_nodes_by_class(api_prompt, upstream_ids, {"LoadImage"}):
+        inputs = node.get("inputs") if isinstance(node, dict) else {}
+        image_name = pick_string(inputs.get("image") if isinstance(inputs, dict) else "")
+        if not image_name or image_name in seen:
+            continue
+        seen.add(image_name)
+        path = comfy_input_image_path(image_name)
+        if not path:
+            _log_error("SaveToGenAsset", f"Input image not found for upload: {image_name}")
+            continue
+        content_type = mimetypes.guess_type(path.name)[0] or "image/png"
+        if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+            _log_error("SaveToGenAsset", f"Skipping unsupported input image type: {image_name}")
+            continue
+        try:
+            files.append(("input_images", (path.name, path.read_bytes(), content_type)))
+            _log_ok("SaveToGenAsset", input_image=path.name, input_node=node_id)
+        except Exception as exc:
+            _log_error("SaveToGenAsset", f"Could not read input image {image_name}: {exc}")
+    return files
+
+
 def redact_secret_fields(value: Any) -> Any:
     if isinstance(value, dict):
         out = {}
@@ -368,7 +414,13 @@ def auto_capture_generation(
     }
 
 
-def post_multipart(url: str, token: str, fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> dict[str, Any]:
+def multipart_file_items(files: dict[str, FilePart] | list[tuple[str, FilePart]]) -> list[tuple[str, FilePart]]:
+    if isinstance(files, dict):
+        return list(files.items())
+    return files
+
+
+def post_multipart(url: str, token: str, fields: dict[str, str], files: dict[str, FilePart] | list[tuple[str, FilePart]]) -> dict[str, Any]:
     boundary = f"----GenAssetBoundary{uuid.uuid4().hex}"
     chunks: list[bytes] = []
 
@@ -378,7 +430,7 @@ def post_multipart(url: str, token: str, fields: dict[str, str], files: dict[str
         chunks.append(str(value).encode())
         chunks.append(b"\r\n")
 
-    for name, (filename, data, content_type) in files.items():
+    for name, (filename, data, content_type) in multipart_file_items(files):
         safe_name = filename.replace('"', "")
         chunks.append(f"--{boundary}\r\n".encode())
         chunks.append(
@@ -795,12 +847,16 @@ class GenAssetSaveGeneration:
                 "metadata": json.dumps(capture["metadata"]),
                 "source": "comfyui",
             }
+            files: list[tuple[str, FilePart]] = [
+                ("image", ("generation.png", tensor_to_png_bytes(image), "image/png")),
+            ]
+            files.extend(collect_input_image_files(api_prompt, capture["metadata"]["capture"]["upstream_node_ids"]))
             url = urllib.parse.urljoin(clean_base_url + "/", "api/v1/generations")
             data = post_multipart(
                 url,
                 clean_workspace_token,
                 fields,
-                {"image": ("generation.png", tensor_to_png_bytes(image), "image/png")},
+                files,
             )
             out_asset_id = data.get("asset", {}).get("id", "")
             out_version_id = data.get("version", {}).get("id", "")
