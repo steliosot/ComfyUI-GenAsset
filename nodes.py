@@ -174,7 +174,7 @@ def collect_prompt_texts(api_prompt: dict[str, Any], sampler: dict[str, Any] | N
         positive_id = input_link(sampler, "positive")
         negative_id = input_link(sampler, "negative")
         positive_text = text_from_condition(api_prompt, positive_id)
-        negative_text = text_from_condition(api_prompt, negative_id)
+        negative_text = text_from_condition(api_prompt, negative_id, negative=True)
 
     if positive_text or negative_text:
         return positive_text, negative_text
@@ -247,11 +247,13 @@ def collect_prompt_texts_from_inputs(api_prompt: dict[str, Any], upstream_ids: l
     return positive_text, negative_text
 
 
-def text_from_condition(api_prompt: dict[str, Any], node_id: str | None) -> str:
+def text_from_condition(api_prompt: dict[str, Any], node_id: str | None, negative: bool = False) -> str:
     if not node_id:
         return ""
     node = api_prompt.get(str(node_id))
     if not isinstance(node, dict):
+        return ""
+    if negative and node_class(node) in {"ConditioningZeroOut"}:
         return ""
     inputs = node.get("inputs")
     text = prompt_text_from_inputs(inputs)
@@ -261,6 +263,8 @@ def text_from_condition(api_prompt: dict[str, Any], node_id: str | None) -> str:
         upstream_node = api_prompt.get(upstream)
         if not isinstance(upstream_node, dict):
             continue
+        if negative and node_class(upstream_node) in {"ConditioningZeroOut"}:
+            return ""
         upstream_inputs = upstream_node.get("inputs")
         text = prompt_text_from_inputs(upstream_inputs)
         if text:

@@ -42,6 +42,7 @@ genasset
 
 - prompt and negative prompt
 - Qwen/Kontext edit prompts from prompt-bearing nodes
+- zeroed negative conditioning is treated as blank negative prompt
 - checkpoint/model name
 - seed, steps, cfg, sampler, scheduler, denoise
 - image size and batch size
