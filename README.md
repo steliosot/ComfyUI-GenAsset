@@ -1,12 +1,37 @@
 # ComfyUI-GenAsset
 
-ComfyUI nodes for saving and loading GenAsset generation memory.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![ComfyUI](https://img.shields.io/badge/ComfyUI-Custom%20Nodes-2b2b2b)](https://github.com/comfyanonymous/ComfyUI)
+[![GenAsset](https://img.shields.io/badge/GenAsset-Start%20Free-1f7a5a)](https://www.genasset.xyz/)
 
-GenAsset treats generated images as cached previews and metadata as the source of truth. These nodes let ComfyUI save a generation with its prompt, seed, model, workflow JSON, image quality metrics, and version metadata, then load that version back later for continued editing.
+ComfyUI nodes for saving, loading, and versioning image generations in **GenAsset**.
 
-## Nodes
+GenAsset keeps the output image together with the recipe (prompt, model, seed, sampler/scheduler, workflow JSON, metadata), so teams and agents can reproduce and reuse results reliably.
 
-Nodes appear under the ComfyUI category:
+## Start Free
+
+Create your GenAsset workspace and token at:
+
+- **https://www.genasset.xyz/**
+
+## Example: Save From ComfyUI To GenAsset
+
+A Flux GGUF txt2img workflow using **Save To GenAsset**.
+
+![Flux GGUF workflow with Save To GenAsset](docs/images/ep10-flux1-dev-gguf-txt2img-genasset.png)
+
+## Why Use This Node Pack
+
+- Save generation outputs as reusable, versioned assets.
+- Load exact versions later for edits or replay.
+- Compare versions and capture metadata changes.
+- Branch/fork creative directions without losing lineage.
+- Upload upstream `LoadImage` inputs as GenAsset input artifacts when available.
+- Enable safer handoff between humans and AI agents.
+
+## Included Nodes
+
+Category in ComfyUI:
 
 ```text
 genasset
@@ -42,7 +67,7 @@ genasset
 
 - prompt and negative prompt
 - Qwen/Kontext edit prompts from prompt-bearing nodes
-- zeroed negative conditioning is treated as blank negative prompt
+- zeroed negative conditioning as blank negative prompt
 - checkpoint/model name
 - seed, steps, cfg, sampler, scheduler, denoise
 - image size and batch size
@@ -62,23 +87,21 @@ It refuses to save blank or near-black frames. In that case it returns a status 
 
 `asset_id` should be the exact asset id (UUID). Leave it empty to load the latest asset in the workspace.
 
-## Install
+## Installation
 
-### ComfyUI Manager
+### Option 1: ComfyUI Manager
 
-After the node pack is published to the Comfy Registry, open ComfyUI Manager and search for:
+After publication in the registry, open ComfyUI Manager and search:
 
 ```text
 GenAsset
 ```
 
-Install the node pack, restart ComfyUI, and the nodes should appear under `genasset`.
+Install and restart ComfyUI.
 
-If you are loading a workflow that contains GenAsset nodes, ComfyUI-Manager's
-missing-node installer should resolve those node types to the `genasset`
-package from the default channel.
+If you are loading a workflow that contains GenAsset nodes, ComfyUI-Manager's missing-node installer should resolve those node types to the `genasset` package from the default channel.
 
-### Manual Git Install
+### Option 2: Manual Install
 
 From your ComfyUI folder:
 
@@ -87,29 +110,25 @@ cd custom_nodes
 git clone https://github.com/steliosot/ComfyUI-GenAsset.git
 ```
 
-Restart ComfyUI. The nodes should appear under `genasset`.
+Restart ComfyUI.
 
-No separate Python dependencies are required beyond the normal ComfyUI runtime.
+## Quick Start (2 minutes)
 
-## Connect To GenAsset
-
-In GenAsset:
-
-1. Open `Settings`.
-2. Select `Tokens`.
-3. Create a workspace token.
-4. Paste it into `Test GenAsset Connection`.
-5. If the test succeeds, paste the same token into `Save To GenAsset` or `Load Asset From GenAsset`.
-
-The nodes default to hosted GenAsset. Paste your workspace token into every GenAsset node's `token` field, or keep the default `ComfyUI/user/genasset.json` and create that file in your ComfyUI user folder.
+1. In GenAsset, create a workspace token (`Settings -> Tokens`).
+2. In ComfyUI, add `Test GenAsset Connection` and confirm status is successful.
+3. Add `Save To GenAsset` to any image workflow and set:
 
 ```text
 base_url = https://genasset.xyz
-token = ComfyUI/user/genasset.json
-asset_name = your reusable asset name
+token = PASTE_TOKEN
+asset_name = your asset name
 ```
 
-Recommended `user/genasset.json` format:
+4. Queue prompt. You should get `asset_id`, `version_id`, and a valid status JSON.
+
+## Token File
+
+Instead of pasting a token into every node, keep the default `ComfyUI/user/genasset.json` and create that file in your ComfyUI user folder:
 
 ```json
 {
@@ -122,38 +141,25 @@ For local development, replace `base_url` with your local app URL, for example `
 
 ## Example Workflows
 
-Example workflows are in [`workflows/`](workflows/):
+Workflows are in [`workflows/`](workflows/).
 
-- `genasset_sdxl_save_generation.json`
-  - Generate an image and save it to GenAsset.
-- `genasset_load_version.json`
-  - Load latest by default, or an exact version when `version_id` is set.
-- `genasset_img2img_load_edit_save_woman_cafe.json`
-  - Load an asset, run img2img, and save the edit as the next version.
+Recommended starters:
 
-Typical round trip:
-
-```text
-Generate in ComfyUI
-  -> Save To GenAsset
-  -> Browse asset/version in GenAsset
-  -> Load Asset From GenAsset
-  -> VAE Encode
-  -> KSampler
-  -> VAE Decode
-  -> Save To GenAsset
-```
+- `genasset_sdxl_save_generation.json` - generate and save a new version.
+- `genasset_load_version.json` - load latest or exact version by id.
+- `genasset_img2img_load_edit_save_woman_cafe.json` - load, edit, save next version.
+- `genasset_compare_two_versions.json` - compare settings between two versions.
+- `genasset_create_branch_version.json` - create branch lineage from a parent version.
 
 ## Security Notes
 
-- Workspace tokens are sent only to the configured GenAsset API as bearer tokens.
-- Saved workflow JSON redacts fields named like `workspace_token`, `token`, `authorization`, `api_key`, `secret`, and `service_role_key`.
-- Do not commit workflow files after pasting real workspace tokens into them.
-- Example workflows in this repo use placeholders only.
+- Never commit real tokens inside workflow JSON files.
+- Use workspace-scoped tokens and rotate them periodically.
+- Workflow JSON redacts token-like fields before save.
 
-## Smoke Test
+## Development
 
-From this repo:
+Smoke test:
 
 ```bash
 python scripts/smoke_import.py
@@ -165,6 +171,11 @@ Expected result:
 Loaded GenAsset nodes: GenAssetAssetSummary, ..., GenAssetWorkflowAssistant
 ```
 
+See also:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [ABOUT.md](ABOUT.md)
+
 ## License
 
-MIT.
+MIT. See [LICENSE](LICENSE).

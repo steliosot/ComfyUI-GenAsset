@@ -137,7 +137,7 @@
       "inputs": [
         {"name": "image", "type": "IMAGE", "link": 9},
         {"name": "base_url", "type": "STRING", "widget": {"name": "base_url"}, "link": null},
-        {"name": "workspace_token", "type": "STRING", "widget": {"name": "workspace_token"}, "link": null},
+        {"name": "token", "type": "STRING", "widget": {"name": "token"}, "link": null},
         {"name": "asset_name", "type": "STRING", "widget": {"name": "asset_name"}, "link": null}
       ],
       "outputs": [
@@ -182,7 +182,7 @@
       "title": "GenAsset workflow notes",
       "properties": {},
       "widgets_values": [
-        "# GenAsset save workflow\n\n1. Open this workflow in ComfyUI.\n2. In **Save To GenAsset**, paste only the GenAsset `base_url`, `workspace_token`, and `asset_name`.\n3. Queue the workflow.\n\nThe image path is:\n\n`Checkpoint -> prompt encode -> KSampler -> VAE Decode -> Save To GenAsset -> SaveImage`\n\n`Save To GenAsset` auto-captures prompt text, negative prompt, checkpoint/model, KSampler seed, steps, cfg, sampler, scheduler, denoise, workflow JSON, image size, upstream node ids, and basic tags from the ComfyUI graph. If a field is not present in the graph, GenAsset saves it empty rather than blocking the run."
+        "# GenAsset save workflow\n\n1. Open this workflow in ComfyUI.\n2. In **Save To GenAsset**, paste only the GenAsset `base_url`, `token`, and `asset_name`.\n3. Queue the workflow.\n\nThe image path is:\n\n`Checkpoint -> prompt encode -> KSampler -> VAE Decode -> Save To GenAsset -> SaveImage`\n\n`Save To GenAsset` auto-captures prompt text, negative prompt, checkpoint/model, KSampler seed, steps, cfg, sampler, scheduler, denoise, workflow JSON, image size, upstream node ids, and basic tags from the ComfyUI graph. If a field is not present in the graph, GenAsset saves it empty rather than blocking the run."
       ],
       "color": "#243",
       "bgcolor": "#355"

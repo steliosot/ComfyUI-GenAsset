@@ -26,10 +26,10 @@
           "link": null
         },
         {
-          "name": "workspace_token",
+          "name": "token",
           "type": "STRING",
           "widget": {
-            "name": "workspace_token"
+            "name": "token"
           },
           "link": null
         },
@@ -497,10 +497,10 @@
           "link": null
         },
         {
-          "name": "workspace_token",
+          "name": "token",
           "type": "STRING",
           "widget": {
-            "name": "workspace_token"
+            "name": "token"
           },
           "link": null
         },
@@ -634,7 +634,7 @@
       "title": "GenAsset img2img workflow notes",
       "properties": {},
       "widgets_values": [
-        "# GenAsset img2img re-edit\n\nThis is the full GenAsset round trip.\n\n1. `Load Asset From GenAsset` loads a saved version.\n   - Set `version_id` for an exact version.\n   - Or leave `version_id` empty and use `asset_id` to load the current/latest version.\n   - Or leave both empty to load the latest updated asset in the workspace.\n2. The loaded image goes into `VAE Encode`; this replaces the empty latent used in txt2img.\n3. `KSampler` runs img2img with `denoise = 0.55` so the prompt can relocate or restyle the asset while preserving structure.\n4. `Save To GenAsset` saves the edited image back as the next version.\n\nPaste your workspace token into both GenAsset nodes. Use the same asset name in `Save To GenAsset` when you want a new version on the same asset. The saved workflow JSON redacts workspace tokens automatically and the black-image guard prevents blank runs from becoming versions."
+        "# GenAsset img2img re-edit\n\nThis is the full GenAsset round trip.\n\n1. `Load Asset From GenAsset` loads a saved version.\n   - Set `version_id` for an exact version.\n   - Or leave `version_id` empty and use `asset_id` to load the current/latest version.\n   - Or leave both empty to load the latest updated asset in the workspace.\n2. The loaded image goes into `VAE Encode`; this replaces the empty latent used in txt2img.\n3. `KSampler` runs img2img with `denoise = 0.55` so the prompt can relocate or restyle the asset while preserving structure.\n4. `Save To GenAsset` saves the edited image back as the next version.\n\nWhere to find the values:\n\n- `token`: GenAsset `Settings -> Tokens`\n- `asset_id`: asset page -> copy asset id, or previous `Save To GenAsset` output `asset_id`\n- `version_id`: version history -> copy version id, or previous `Save To GenAsset` output `version_id`\n\nIf `Load Asset From GenAsset` returns a tiny black 64x64 preview, check `status_json.error` and verify `base_url` + `token` match the environment where the ids were created.\n\nPaste your token into both GenAsset nodes. Use the same asset name in `Save To GenAsset` when you want a new version on the same asset. The saved workflow JSON redacts tokens automatically and the black-image guard prevents blank runs from becoming versions."
       ]
     }
   ],

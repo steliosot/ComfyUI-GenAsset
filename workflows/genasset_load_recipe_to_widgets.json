@@ -1,0 +1,308 @@
+{
+  "id": "f4ddf984-b0fa-45d8-9d65-2a72e19d850f",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GenAssetLoadVersion",
+      "pos": [
+        -360,
+        40
+      ],
+      "size": [
+        520,
+        260
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "base_url",
+          "type": "STRING",
+          "widget": {
+            "name": "base_url"
+          },
+          "link": null
+        },
+        {
+          "name": "token",
+          "type": "STRING",
+          "widget": {
+            "name": "token"
+          },
+          "link": null
+        },
+        {
+          "name": "asset_id",
+          "type": "STRING",
+          "widget": {
+            "name": "asset_id"
+          },
+          "link": null
+        },
+        {
+          "name": "version_id",
+          "type": "STRING",
+          "widget": {
+            "name": "version_id"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "asset_id",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "version_id",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        },
+        {
+          "name": "workflow_json",
+          "type": "STRING",
+          "links": [
+            2
+          ],
+          "slot_index": 3
+        },
+        {
+          "name": "metadata_json",
+          "type": "STRING",
+          "links": [
+            3
+          ],
+          "slot_index": 4
+        },
+        {
+          "name": "status_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 5
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GenAssetLoadVersion"
+      },
+      "widgets_values": [
+        "https://genasset.xyz",
+        "PASTE_TOKEN",
+        "PASTE_ASSET_ID_OR_EMPTY",
+        ""
+      ]
+    },
+    {
+      "id": 2,
+      "type": "PreviewImage",
+      "pos": [
+        220,
+        40
+      ],
+      "size": [
+        360,
+        340
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 3,
+      "type": "GenAssetLoadRecipeToWidgets",
+      "pos": [
+        220,
+        420
+      ],
+      "size": [
+        620,
+        300
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "workflow_json",
+          "type": "STRING",
+          "link": 2
+        },
+        {
+          "name": "metadata_json",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prompt_text",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "negative_prompt_text",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "model_name",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "links": null,
+          "slot_index": 3
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "links": null,
+          "slot_index": 4
+        },
+        {
+          "name": "cfg",
+          "type": "FLOAT",
+          "links": null,
+          "slot_index": 5
+        },
+        {
+          "name": "sampler_name",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 6
+        },
+        {
+          "name": "scheduler",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 7
+        },
+        {
+          "name": "denoise",
+          "type": "FLOAT",
+          "links": null,
+          "slot_index": 8
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null,
+          "slot_index": 9
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null,
+          "slot_index": 10
+        },
+        {
+          "name": "status_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 11
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GenAssetLoadRecipeToWidgets"
+      },
+      "widgets_values": [
+        "{}",
+        "{}"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "MarkdownNote",
+      "pos": [
+        -360,
+        760
+      ],
+      "size": [
+        1200,
+        300
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Load recipe to widgets workflow notes",
+      "properties": {},
+      "widgets_values": [
+        "# Load Recipe To Widgets\n\n1. Fill token + asset_id/version_id on `Load Asset From GenAsset`.\n2. Queue once.\n3. `Load Recipe To Widgets` receives `workflow_json` + `metadata_json` and outputs replay values:\n   - prompt_text, negative_prompt_text, model_name\n   - seed, steps, cfg, sampler_name, scheduler, denoise\n   - width, height\n\nUse these outputs to manually copy values into sampler/prompt nodes for reproducible reruns.\n\nIf extraction is empty for some fields, that recipe did not include those keys."
+      ],
+      "color": "#243",
+      "bgcolor": "#355"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      3,
+      3,
+      0,
+      "STRING"
+    ],
+    [
+      3,
+      1,
+      4,
+      3,
+      1,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        260,
+        140
+      ]
+    },
+    "workflowRendererVersion": "LG"
+  },
+  "version": 0.4
+}

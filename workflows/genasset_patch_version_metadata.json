@@ -1,0 +1,124 @@
+{
+  "id": "d7e99198-16d7-47a9-89d4-2cd5bb2d7a24",
+  "revision": 0,
+  "last_node_id": 2,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GenAssetPatchVersionMetadata",
+      "pos": [
+        -140,
+        0
+      ],
+      "size": [
+        760,
+        400
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "base_url",
+          "type": "STRING",
+          "widget": {
+            "name": "base_url"
+          },
+          "link": null
+        },
+        {
+          "name": "token",
+          "type": "STRING",
+          "widget": {
+            "name": "token"
+          },
+          "link": null
+        },
+        {
+          "name": "version_id",
+          "type": "STRING",
+          "widget": {
+            "name": "version_id"
+          },
+          "link": null
+        },
+        {
+          "name": "metadata_patch_json",
+          "type": "STRING",
+          "widget": {
+            "name": "metadata_patch_json"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "version_id",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "metadata_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "status_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GenAssetPatchVersionMetadata"
+      },
+      "widgets_values": [
+        "https://genasset.xyz",
+        "PASTE_TOKEN",
+        "PASTE_VERSION_ID",
+        "{\n  \"approval\": \"approved\",\n  \"reviewer\": \"stelios\",\n  \"review_note\": \"ready for production\",\n  \"qa\": {\n    \"checked\": true,\n    \"checklist\": [\n      \"prompt_ok\",\n      \"model_ok\",\n      \"seed_recorded\"\n    ]\n  }\n}"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "MarkdownNote",
+      "pos": [
+        -140,
+        450
+      ],
+      "size": [
+        980,
+        280
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Save metadata patch workflow notes",
+      "properties": {},
+      "widgets_values": [
+        "# Save Metadata Patch To GenAsset\n\n1. Paste `token` from GenAsset Settings -> Tokens.\n2. Paste `version_id` from the asset page using **Copy version id**.\n3. Edit `metadata_patch_json` with your keys.\n4. Queue this single node.\n\nExpected result:\n- Node UI text starts with `SUCCESS:`.\n- `status_json` output has `ok: true`.\n- The same version in GenAsset shows merged metadata.\n\nIf it fails:\n- Check `status_json.error`.\n- Make sure token + version belong to the same workspace.\n- Ensure `metadata_patch_json` is valid JSON."
+      ],
+      "color": "#243",
+      "bgcolor": "#355"
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        280,
+        220
+      ]
+    },
+    "workflowRendererVersion": "LG"
+  },
+  "version": 0.4
+}

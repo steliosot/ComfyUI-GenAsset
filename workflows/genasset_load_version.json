@@ -14,7 +14,7 @@
       "mode": 0,
       "inputs": [
         {"name": "base_url", "type": "STRING", "widget": {"name": "base_url"}, "link": null},
-        {"name": "workspace_token", "type": "STRING", "widget": {"name": "workspace_token"}, "link": null},
+        {"name": "token", "type": "STRING", "widget": {"name": "token"}, "link": null},
         {"name": "asset_id", "type": "STRING", "widget": {"name": "asset_id"}, "link": null},
         {"name": "version_id", "type": "STRING", "widget": {"name": "version_id"}, "link": null}
       ],
@@ -62,7 +62,7 @@
       "title": "GenAsset load workflow notes",
       "properties": {},
       "widgets_values": [
-        "# GenAsset load workflow\n\nPaste your workspace token and choose one load mode:\n\n- Exact version: fill `version_id`.\n- Latest for one asset: leave `version_id` empty and set `asset_id`.\n- Latest in workspace: leave both `version_id` and `asset_id` empty.\n\nQueue this workflow to fetch the preview plus workflow/metadata JSON from GenAsset."
+        "# GenAsset load workflow\n\nFill these fields:\n\n- `base_url`: `https://genasset.xyz` (or your local GenAsset URL)\n- `token`: from GenAsset `Settings -> Tokens`\n- `asset_id`: exact asset UUID (optional)\n- `version_id`: exact version UUID (optional)\n\nLoad modes:\n\n- Exact version: set `version_id`.\n- Latest for one asset: leave `version_id` empty and set `asset_id`.\n- Latest in workspace: leave both empty.\n\nWhere to find ids:\n\n- `asset_id`: asset page -> copy asset id, or `Save To GenAsset` output `asset_id`.\n- `version_id`: version history -> copy version id, or `Save To GenAsset` output `version_id`.\n\nIf preview shows a tiny black 64x64 image, check `status_json.error` and verify `base_url` + `token` target the same workspace as the ids."
       ],
       "color": "#243",
       "bgcolor": "#355"

@@ -1,0 +1,275 @@
+{
+  "id": "e4ea7f55-cf7a-4f35-b91e-1fccf0578ce2",
+  "revision": 0,
+  "last_node_id": 11,
+  "last_link_id": 24,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GenAssetLoadVersion",
+      "pos": [-1180, -10],
+      "size": [520, 260],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {"name": "base_url", "type": "STRING", "widget": {"name": "base_url"}, "link": null},
+        {"name": "token", "type": "STRING", "widget": {"name": "token"}, "link": null},
+        {"name": "asset_id", "type": "STRING", "widget": {"name": "asset_id"}, "link": null},
+        {"name": "version_id", "type": "STRING", "widget": {"name": "version_id"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "image", "type": "IMAGE", "links": [1], "slot_index": 0},
+        {"name": "asset_id", "type": "STRING", "links": null, "slot_index": 1},
+        {"name": "version_id", "type": "STRING", "links": null, "slot_index": 2},
+        {"name": "workflow_json", "type": "STRING", "links": [2], "slot_index": 3},
+        {"name": "metadata_json", "type": "STRING", "links": [3], "slot_index": 4},
+        {"name": "status_json", "type": "STRING", "links": null, "slot_index": 5}
+      ],
+      "properties": {"Node name for S&R": "GenAssetLoadVersion"},
+      "widgets_values": [
+        "https://genasset.xyz",
+        "PASTE_TOKEN",
+        "PASTE_ASSET_ID",
+        ""
+      ]
+    },
+    {
+      "id": 2,
+      "type": "GenAssetLoadRecipeToWidgets",
+      "pos": [-560, 220],
+      "size": [650, 320],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {"name": "workflow_json", "type": "STRING", "link": 2},
+        {"name": "metadata_json", "type": "STRING", "link": 3}
+      ],
+      "outputs": [
+        {"name": "prompt_text", "type": "STRING", "links": [10], "slot_index": 0},
+        {"name": "negative_prompt_text", "type": "STRING", "links": [11], "slot_index": 1},
+        {"name": "model_name", "type": "STRING", "links": null, "slot_index": 2},
+        {"name": "seed", "type": "INT", "links": [14], "slot_index": 3},
+        {"name": "steps", "type": "INT", "links": [15], "slot_index": 4},
+        {"name": "cfg", "type": "FLOAT", "links": [16], "slot_index": 5},
+        {"name": "sampler_name", "type": "STRING", "links": null, "slot_index": 6},
+        {"name": "scheduler", "type": "STRING", "links": null, "slot_index": 7},
+        {"name": "denoise", "type": "FLOAT", "links": [19], "slot_index": 8},
+        {"name": "width", "type": "INT", "links": [12], "slot_index": 9},
+        {"name": "height", "type": "INT", "links": [13], "slot_index": 10},
+        {"name": "status_json", "type": "STRING", "links": null, "slot_index": 11}
+      ],
+      "properties": {"Node name for S&R": "GenAssetLoadRecipeToWidgets"},
+      "widgets_values": ["{}", "{}"]
+    },
+    {
+      "id": 3,
+      "type": "CheckpointLoaderSimple",
+      "pos": [-560, -110],
+      "size": [340, 105],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {"name": "ckpt_name", "type": "COMBO", "widget": {"name": "ckpt_name"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "MODEL", "type": "MODEL", "links": [6], "slot_index": 0},
+        {"name": "CLIP", "type": "CLIP", "links": [7, 8], "slot_index": 1},
+        {"name": "VAE", "type": "VAE", "links": [9], "slot_index": 2}
+      ],
+      "properties": {"Node name for S&R": "CheckpointLoaderSimple"},
+      "widgets_values": ["juggernautXL_version2.safetensors"]
+    },
+    {
+      "id": 4,
+      "type": "EmptyLatentImage",
+      "pos": [120, 280],
+      "size": [320, 120],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {"name": "width", "type": "INT", "widget": {"name": "width"}, "link": 12},
+        {"name": "height", "type": "INT", "widget": {"name": "height"}, "link": 13},
+        {"name": "batch_size", "type": "INT", "widget": {"name": "batch_size"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "LATENT", "type": "LATENT", "links": [20], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "EmptyLatentImage"},
+      "widgets_values": [1024, 1024, 1]
+    },
+    {
+      "id": 5,
+      "type": "CLIPTextEncode",
+      "pos": [120, -150],
+      "size": [480, 200],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {"name": "clip", "type": "CLIP", "link": 7},
+        {"name": "text", "type": "STRING", "widget": {"name": "text"}, "link": 10}
+      ],
+      "outputs": [
+        {"name": "CONDITIONING", "type": "CONDITIONING", "links": [21], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "CLIPTextEncode"},
+      "widgets_values": ["prompt will be loaded from recipe"]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [120, 60],
+      "size": [480, 200],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {"name": "clip", "type": "CLIP", "link": 8},
+        {"name": "text", "type": "STRING", "widget": {"name": "text"}, "link": 11}
+      ],
+      "outputs": [
+        {"name": "CONDITIONING", "type": "CONDITIONING", "links": [22], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "CLIPTextEncode"},
+      "widgets_values": ["negative prompt will be loaded from recipe"]
+    },
+    {
+      "id": 7,
+      "type": "KSampler",
+      "pos": [660, 10],
+      "size": [360, 300],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 6},
+        {"name": "positive", "type": "CONDITIONING", "link": 21},
+        {"name": "negative", "type": "CONDITIONING", "link": 22},
+        {"name": "latent_image", "type": "LATENT", "link": 20},
+        {"name": "seed", "type": "INT", "widget": {"name": "seed"}, "link": 14},
+        {"name": "steps", "type": "INT", "widget": {"name": "steps"}, "link": 15},
+        {"name": "cfg", "type": "FLOAT", "widget": {"name": "cfg"}, "link": 16},
+        {"name": "sampler_name", "type": "COMBO", "widget": {"name": "sampler_name"}, "link": null},
+        {"name": "scheduler", "type": "COMBO", "widget": {"name": "scheduler"}, "link": null},
+        {"name": "denoise", "type": "FLOAT", "widget": {"name": "denoise"}, "link": 19}
+      ],
+      "outputs": [
+        {"name": "LATENT", "type": "LATENT", "links": [23], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "KSampler"},
+      "widgets_values": [123456789, "fixed", 20, 6.5, "euler", "normal", 1]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [1080, 20],
+      "size": [240, 110],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {"name": "samples", "type": "LATENT", "link": 23},
+        {"name": "vae", "type": "VAE", "link": 9}
+      ],
+      "outputs": [
+        {"name": "IMAGE", "type": "IMAGE", "links": [4], "slot_index": 0}
+      ],
+      "properties": {"Node name for S&R": "VAEDecode"},
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "GenAssetSaveGeneration",
+      "pos": [1360, -20],
+      "size": [460, 260],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {"name": "image", "type": "IMAGE", "link": 4},
+        {"name": "base_url", "type": "STRING", "widget": {"name": "base_url"}, "link": null},
+        {"name": "token", "type": "STRING", "widget": {"name": "token"}, "link": null},
+        {"name": "asset_name", "type": "STRING", "widget": {"name": "asset_name"}, "link": null}
+      ],
+      "outputs": [
+        {"name": "image", "type": "IMAGE", "links": [24], "slot_index": 0},
+        {"name": "asset_id", "type": "STRING", "links": null, "slot_index": 1},
+        {"name": "version_id", "type": "STRING", "links": null, "slot_index": 2},
+        {"name": "status_json", "type": "STRING", "links": null, "slot_index": 3}
+      ],
+      "properties": {"Node name for S&R": "GenAssetSaveGeneration"},
+      "widgets_values": [
+        "https://genasset.xyz",
+        "PASTE_TOKEN",
+        "Recipe Replay Output"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "PreviewImage",
+      "pos": [1860, -20],
+      "size": [350, 350],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 24}
+      ],
+      "outputs": [],
+      "properties": {"Node name for S&R": "PreviewImage"},
+      "widgets_values": []
+    },
+    {
+      "id": 11,
+      "type": "MarkdownNote",
+      "pos": [-1180, 580],
+      "size": [1540, 300],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Recipe -> Widgets -> Generate",
+      "properties": {},
+      "widgets_values": [
+        "# Load recipe and generate\n\n1. Fill token + asset_id in `Load Asset From GenAsset`.\n2. Queue once. `Load Recipe To Widgets` will output prompt, negative, sampler values, and width/height.\n3. Those outputs are already linked into CLIP/KSampler/EmptyLatent widget inputs.\n4. Queue again to generate with loaded recipe values.\n5. Optional: `Save To GenAsset` saves the new result as a new version.\n\nNotes:\n- `model_name` is extracted but checkpoint selection stays manual in `Load Checkpoint` for maximum compatibility.\n- If your ComfyUI warns about deprecated widget input APIs, update extension/plugins and restart ComfyUI."
+      ],
+      "color": "#243",
+      "bgcolor": "#355"
+    }
+  ],
+  "links": [
+    [1, 1, 0, 2, 0, "IMAGE"],
+    [2, 1, 3, 2, 0, "STRING"],
+    [3, 1, 4, 2, 1, "STRING"],
+    [4, 8, 0, 9, 0, "IMAGE"],
+    [6, 3, 0, 7, 0, "MODEL"],
+    [7, 3, 1, 5, 0, "CLIP"],
+    [8, 3, 1, 6, 0, "CLIP"],
+    [9, 3, 2, 8, 1, "VAE"],
+    [10, 2, 0, 5, 1, "STRING"],
+    [11, 2, 1, 6, 1, "STRING"],
+    [12, 2, 9, 4, 0, "INT"],
+    [13, 2, 10, 4, 1, "INT"],
+    [14, 2, 3, 7, 4, "INT"],
+    [15, 2, 4, 7, 5, "INT"],
+    [16, 2, 5, 7, 6, "FLOAT"],
+    [19, 2, 8, 7, 9, "FLOAT"],
+    [20, 4, 0, 7, 3, "LATENT"],
+    [21, 5, 0, 7, 1, "CONDITIONING"],
+    [22, 6, 0, 7, 2, "CONDITIONING"],
+    [23, 7, 0, 8, 0, "LATENT"],
+    [24, 9, 0, 10, 0, "IMAGE"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {"scale": 0.9, "offset": [210, 110]},
+    "workflowRendererVersion": "LG"
+  },
+  "version": 0.4
+}
