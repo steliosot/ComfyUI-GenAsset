@@ -661,6 +661,7 @@ def _mounted_custom_workflow_dir() -> Path | None:
         candidates.append(Path(configured))
     candidates.extend(
         [
+            package_root() / "workflows",
             Path("/opt/ComfyUI/models/workflows/09_custom"),
             Path("/opt/ComfyUI/models/workflows"),
         ]
