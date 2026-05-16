@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import mimetypes
 import os
 import re
+import subprocess
+import sys
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,6 +27,8 @@ FilePart = tuple[str, bytes, str]
 MAX_CATALOG_BYTES = 8 * 1024 * 1024
 CATALOG_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$")
 RAW_GITHUB_PYPROJECT_URL = "https://raw.githubusercontent.com/steliosot/ComfyUI-GenAsset/main/pyproject.toml"
+GENASSET_MANAGER_PACKAGE_ID = "genasset"
+_GENASSET_UPDATE_LOCK = threading.Lock()
 
 
 def _ensure_image_batch(image: torch.Tensor) -> torch.Tensor:
@@ -1117,6 +1123,141 @@ def fetch_latest_genasset_node_version() -> dict[str, Any]:
         }
 
 
+def _candidate_comfyui_roots() -> list[Path]:
+    roots: list[Path] = []
+    for value in (os.getenv("COMFYUI_PATH"), os.getenv("COMFYUI_ROOT")):
+        if value:
+            roots.append(Path(value).expanduser())
+
+    root = package_root()
+    for parent in [root, *root.parents]:
+        if parent.name == "custom_nodes" and parent.parent:
+            roots.append(parent.parent)
+        if (parent / "main.py").exists() and (parent / "custom_nodes").exists():
+            roots.append(parent)
+
+    try:
+        cwd = Path.cwd()
+        roots.append(cwd)
+        if cwd.name == "custom_nodes" and cwd.parent:
+            roots.append(cwd.parent)
+    except Exception:
+        pass
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for root_path in roots:
+        try:
+            resolved = root_path.resolve()
+        except Exception:
+            resolved = root_path
+        key = str(resolved)
+        if key not in seen:
+            seen.add(key)
+            unique.append(resolved)
+    return unique
+
+
+def _find_manager_cli() -> tuple[Path, Path]:
+    checked: list[str] = []
+    manager_dir_names = ("ComfyUI-Manager", "ComfyUI-Manager-main", "comfyui-manager")
+    for comfyui_root in _candidate_comfyui_roots():
+        for manager_dir_name in manager_dir_names:
+            candidate = comfyui_root / "custom_nodes" / manager_dir_name / "cm-cli.py"
+            checked.append(str(candidate))
+            if candidate.exists():
+                return comfyui_root, candidate
+    checked_text = "; ".join(checked[:8])
+    raise RuntimeError(f"ComfyUI-Manager cm-cli.py was not found. Checked: {checked_text}")
+
+
+def _run_manager_cli(args: list[str], comfyui_root: Path, manager_cli: Path) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["COMFYUI_PATH"] = str(comfyui_root)
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    return subprocess.run(
+        [sys.executable, str(manager_cli), *args],
+        cwd=str(comfyui_root),
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=300,
+        check=False,
+    )
+
+
+def _tail_output(text: str, limit: int = 4000) -> str:
+    clean = str(text or "").strip()
+    if len(clean) <= limit:
+        return clean
+    return clean[-limit:]
+
+
+def _validate_update_version(version: str) -> str:
+    clean = str(version or "").strip()
+    if not re.fullmatch(r"\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?", clean):
+        raise RuntimeError("Latest GenAsset version is not valid for an automatic update.")
+    return clean
+
+
+def perform_genasset_node_update() -> dict[str, Any]:
+    if not _GENASSET_UPDATE_LOCK.acquire(blocking=False):
+        return {"ok": False, "updated": False, "error": "A GenAsset update is already running."}
+    try:
+        update = fetch_latest_genasset_node_version()
+        current = str(update.get("current_version") or genasset_node_version())
+        latest = str(update.get("latest_version") or "")
+        if update.get("ok") and latest and compare_versions(current, latest) <= 0:
+            return {
+                "ok": True,
+                "updated": False,
+                "current_version": current,
+                "latest_version": latest,
+                "restart_required": False,
+                "message": "GenAsset is already up to date.",
+            }
+        if not latest:
+            raise RuntimeError(str(update.get("error") or "Could not determine the latest GenAsset version."))
+
+        target_version = _validate_update_version(latest)
+        comfyui_root, manager_cli = _find_manager_cli()
+        attempts = [
+            ["install", f"{GENASSET_MANAGER_PACKAGE_ID}@{target_version}", "--mode", "remote", "--channel", "default"],
+            ["update", GENASSET_MANAGER_PACKAGE_ID, "--mode", "remote", "--channel", "default"],
+        ]
+        outputs: list[str] = []
+        for args in attempts:
+            result = _run_manager_cli(args, comfyui_root, manager_cli)
+            output = _tail_output(result.stdout)
+            outputs.append(f"$ {' '.join(args)}\n{output}")
+            if result.returncode == 0:
+                return {
+                    "ok": True,
+                    "updated": True,
+                    "current_version": current,
+                    "latest_version": target_version,
+                    "restart_required": True,
+                    "manager_cli": str(manager_cli),
+                    "comfyui_root": str(comfyui_root),
+                    "message": f"Updated GenAsset to v{target_version}. Restart ComfyUI to load it.",
+                    "output": output,
+                }
+
+        raise RuntimeError("ComfyUI-Manager could not update GenAsset.\n" + "\n\n".join(outputs))
+    except Exception as exc:
+        return {
+            "ok": False,
+            "updated": False,
+            "current_version": genasset_node_version(),
+            "restart_required": False,
+            "error": str(exc),
+            "message": "GenAsset update failed.",
+        }
+    finally:
+        _GENASSET_UPDATE_LOCK.release()
+
+
 def workflow_name_from_version(version: dict[str, Any], fallback: str) -> str:
     metadata = version.get("metadata") if isinstance(version.get("metadata"), dict) else {}
     workflow_meta = metadata.get("workflow") if isinstance(metadata.get("workflow"), dict) else {}
@@ -1206,6 +1347,10 @@ try:
     @PromptServer.instance.routes.get("/genasset/manager/update-check")
     async def genasset_manager_update_check_route(request):  # type: ignore[no-untyped-def]
         return web.json_response(fetch_latest_genasset_node_version())
+
+    @PromptServer.instance.routes.post("/genasset/manager/update")
+    async def genasset_manager_update_route(request):  # type: ignore[no-untyped-def]
+        return web.json_response(await asyncio.to_thread(perform_genasset_node_update))
 
     @PromptServer.instance.routes.get("/genasset/manager/recent")
     async def genasset_manager_recent_route(request):  # type: ignore[no-untyped-def]

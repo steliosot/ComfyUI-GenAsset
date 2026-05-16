@@ -48,10 +48,10 @@ function getComfyApi() {
   return window.comfyAPI?.api?.api;
 }
 
-function fetchGenAssetApi(path) {
+function fetchGenAssetApi(path, options) {
   const comfyApi = getComfyApi();
-  if (comfyApi?.fetchApi) return comfyApi.fetchApi(path);
-  return fetch(path);
+  if (comfyApi?.fetchApi) return comfyApi.fetchApi(path, options);
+  return fetch(path, options);
 }
 
 const state = {
@@ -196,6 +196,10 @@ function ensureStyle() {
     .genasset-manager-button-warning {
       border-color: #a56a20;
       background: #704516;
+    }
+    .genasset-manager-button-success {
+      border-color: #2f8f6f;
+      background: #24785d;
     }
     .genasset-manager-button:disabled {
       cursor: default;
@@ -449,26 +453,34 @@ function renderUpdate(body) {
   const el = panel(body, "update");
   const version = status.version || "unknown";
   const lastUpdated = formatRelativeDate(status.last_updated);
-  const updateLine = update.ok
+  const isUpdating = Boolean(update.updating);
+  const updateLine = isUpdating
+    ? `<div class="genasset-manager-muted">• Updating GenAsset...</div>`
+    : update.updated
+      ? `<div class="genasset-manager-ok">✔ Updated successfully</div>`
+      : update.ok
     ? update.update_available
       ? `<div class="genasset-manager-warn">⚠ Update available: v${escapeHtml(update.latest_version)}</div>`
       : `<div class="genasset-manager-ok">✔ Up to date</div>`
     : `<div class="genasset-manager-muted">• Update not checked</div>`;
+  const updateButtonText = isUpdating ? "Updating..." : update.updated ? "Updated" : "Update";
+  const canUpdate = Boolean(update.update_available) && !isUpdating && !update.updated;
+  const updateButtonClass = update.updated ? "genasset-manager-button-success" : "genasset-manager-button-warning";
   el.innerHTML = `
     <div class="genasset-manager-section-title"><span>GenAsset Node</span></div>
     <div class="genasset-manager-row"><span>Version</span><strong>v${escapeHtml(version)}</strong></div>
     <div class="genasset-manager-row"><span>Last updated</span><span>${escapeHtml(lastUpdated)}</span></div>
     ${updateLine}
+    ${update.message ? `<div class="genasset-manager-small ${update.ok === false ? "genasset-manager-bad" : "genasset-manager-muted"}">${escapeHtml(update.message)}</div>` : ""}
+    ${update.restart_required ? `<div class="genasset-manager-small genasset-manager-warn">Restart ComfyUI, then refresh the browser to load the updated node.</div>` : ""}
     ${update.error ? `<div class="genasset-manager-small genasset-manager-bad">${escapeHtml(update.error)}</div>` : ""}
     <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-      <button class="genasset-manager-button" data-action="check-update">Check update</button>
-      <button class="genasset-manager-button genasset-manager-button-warning" data-action="open-update">Update</button>
+      <button class="genasset-manager-button" data-action="check-update" ${isUpdating ? "disabled" : ""}>Check update</button>
+      <button class="genasset-manager-button ${updateButtonClass}" data-action="run-update" ${canUpdate ? "" : "disabled"}>${escapeHtml(updateButtonText)}</button>
     </div>
   `;
   el.querySelector('[data-action="check-update"]').addEventListener("click", () => checkUpdate(body));
-  el.querySelector('[data-action="open-update"]').addEventListener("click", () => {
-    window.open("https://github.com/steliosot/ComfyUI-GenAsset", "_blank", "noopener,noreferrer");
-  });
+  el.querySelector('[data-action="run-update"]').addEventListener("click", () => runUpdate(body));
 }
 
 function workspaceOptions() {
@@ -718,6 +730,25 @@ async function checkUpdate(body) {
     state.update = await readJsonResponse(response);
   } catch (error) {
     state.update = { ok: false, error: error?.message || "Update check failed." };
+  }
+  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+}
+
+async function runUpdate(body) {
+  state.update = { ...(state.update || {}), updating: true, error: "", message: "" };
+  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  try {
+    const response = await fetchGenAssetApi("/genasset/manager/update", { method: "POST" });
+    state.update = await readJsonResponse(response);
+  } catch (error) {
+    state.update = {
+      ...(state.update || {}),
+      ok: false,
+      updating: false,
+      updated: false,
+      error: error?.message || "Update failed.",
+      message: "GenAsset update failed.",
+    };
   }
   renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
 }
