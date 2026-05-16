@@ -126,6 +126,12 @@ asset_name = your asset name
 
 4. Queue prompt. You should get `asset_id`, `version_id`, and a valid status JSON.
 
+## GenAsset Manager
+
+After installing or updating this node pack, restart ComfyUI and click `GenAsset` in the top toolbar, next to Manager.
+
+The panel can test your GenAsset connection, show recent assets, and import public or workspace workflows. Choose a workflow and click `Import`. The workflow is loaded onto the canvas, but it is not queued automatically.
+
 ## Token File
 
 Instead of pasting a token into every node, keep the default `ComfyUI/user/genasset.json` and create that file in your ComfyUI user folder:

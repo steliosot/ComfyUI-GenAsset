@@ -1,0 +1,98 @@
+{
+  "id": "genasset-import-demo",
+  "revision": 0,
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "GenAssetTestConnection",
+      "pos": [
+        120,
+        120
+      ],
+      "size": [
+        300,
+        162
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "base_url",
+          "name": "base_url",
+          "type": "STRING",
+          "widget": {
+            "name": "base_url"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "token",
+          "name": "token",
+          "type": "STRING",
+          "widget": {
+            "name": "token"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "workspace_name",
+          "name": "workspace_name",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "status_json",
+          "name": "status_json",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "summary",
+          "name": "summary",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "state",
+          "name": "state",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "localized_name": "normalized_status_json",
+          "name": "normalized_status_json",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GenAssetTestConnection",
+        "cnr_id": "genasset"
+      },
+      "widgets_values": [
+        "https://genasset.xyz",
+        "ComfyUI/user/genasset.json"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}

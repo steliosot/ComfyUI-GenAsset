@@ -1,6 +1,6 @@
 [project]
 name = "genasset"
-version = "1.0.8"
+version = "1.0.9"
 description = "ComfyUI nodes for saving, loading, and versioning GenAsset generations."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

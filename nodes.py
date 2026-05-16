@@ -9,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,9 @@ from PIL import Image
 
 CATEGORY = "genasset"
 FilePart = tuple[str, bytes, str]
+MAX_CATALOG_BYTES = 8 * 1024 * 1024
+CATALOG_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$")
+RAW_GITHUB_PYPROJECT_URL = "https://raw.githubusercontent.com/steliosot/ComfyUI-GenAsset/main/pyproject.toml"
 
 
 def _ensure_image_batch(image: torch.Tensor) -> torch.Tensor:
@@ -561,6 +565,246 @@ def friendly_non_json_error(request: urllib.request.Request, payload: str, statu
     return "GenAsset returned invalid JSON."
 
 
+def _validate_catalog_workflow_id(workflow_id: str) -> str:
+    value = str(workflow_id or "").strip()
+    if not value or not CATALOG_ID_PATTERN.fullmatch(value):
+        raise RuntimeError("Invalid GenAsset workflow id.")
+    return value
+
+
+def _read_public_json_url(url: str, max_bytes: int = MAX_CATALOG_BYTES) -> Any:
+    request = urllib.request.Request(url, headers={"User-Agent": "ComfyUI-GenAsset/1.0"})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            length = response.headers.get("Content-Length")
+            if length:
+                try:
+                    if int(length) > max_bytes:
+                        raise RuntimeError("GenAsset workflow response is too large.")
+                except ValueError:
+                    pass
+            payload = response.read(max_bytes + 1)
+    except urllib.error.HTTPError as exc:
+        payload = exc.read().decode("utf-8", errors="replace")
+        try:
+            data = json.loads(payload)
+            message = data.get("error") if isinstance(data, dict) else ""
+        except Exception:
+            message = ""
+        raise RuntimeError(message or f"GenAsset catalog returned HTTP {exc.code}.") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Could not reach GenAsset catalog: {exc.reason}") from exc
+
+    if len(payload) > max_bytes:
+        raise RuntimeError("GenAsset workflow response is too large.")
+    try:
+        return json.loads(payload.decode("utf-8"))
+    except Exception as exc:
+        raise RuntimeError("GenAsset catalog returned invalid JSON.") from exc
+
+
+def _is_visual_workflow(value: Any) -> bool:
+    return isinstance(value, dict) and isinstance(value.get("nodes"), list) and len(value.get("nodes") or []) > 0
+
+
+def _normalize_import_workflow_payload(payload: Any) -> dict[str, Any]:
+    if _is_visual_workflow(payload):
+        return payload
+    if not isinstance(payload, dict):
+        raise RuntimeError("GenAsset catalog response was not a workflow object.")
+    workflow = payload.get("workflow")
+    if _is_visual_workflow(workflow):
+        return workflow
+    workflow_json = payload.get("workflow_json")
+    if _is_visual_workflow(workflow_json):
+        return workflow_json
+    if isinstance(workflow_json, dict) and _is_visual_workflow(workflow_json.get("workflow")):
+        return workflow_json["workflow"]
+    raise RuntimeError("GenAsset catalog response did not include a visual ComfyUI workflow.")
+
+
+def _genasset_catalog_base_url() -> str:
+    env_value = os.getenv("GENASSET_BASE_URL", "").strip().rstrip("/")
+    if env_value:
+        return env_value
+    try:
+        config, _ = _read_genasset_config()
+        configured = pick_string(config.get("base_url")).rstrip("/")
+        if configured:
+            return configured
+    except Exception:
+        pass
+    return DEFAULT_BASE_URL
+
+
+def _catalog_url(path: str) -> str:
+    base_url = _genasset_catalog_base_url()
+    return urllib.parse.urljoin(base_url + "/", path.lstrip("/"))
+
+
+def _slug_from_workflow_filename(file_name: str) -> str:
+    text = re.sub(r"\.json$", "", file_name, flags=re.IGNORECASE)
+    text = re.sub(r"^GenAsset-", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"[^a-zA-Z0-9]+", "-", text).strip("-").lower()
+    return text or "workflow"
+
+
+def _title_from_slug(slug: str) -> str:
+    acronyms = {"ai", "api", "ui", "sdxl"}
+    return " ".join(part.upper() if part in acronyms else part.capitalize() for part in slug.split("-") if part)
+
+
+def _mounted_custom_workflow_dir() -> Path | None:
+    configured = os.getenv("GENASSET_WORKFLOW_CATALOG_DIR", "").strip()
+    candidates = []
+    if configured:
+        candidates.append(Path(configured))
+    candidates.extend(
+        [
+            Path("/opt/ComfyUI/models/workflows/09_custom"),
+            Path("/opt/ComfyUI/models/workflows"),
+        ]
+    )
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+    return None
+
+
+def _mounted_workflow_files() -> list[Path]:
+    root = _mounted_custom_workflow_dir()
+    if root is None:
+        return []
+    return sorted(path for path in root.rglob("*.json") if path.is_file())
+
+
+def _mounted_workflow_card(path: Path) -> dict[str, Any]:
+    slug = _slug_from_workflow_filename(path.name)
+    node_count = 0
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        workflow = _normalize_import_workflow_payload(payload)
+        node_count = len(workflow.get("nodes") or [])
+    except Exception:
+        pass
+    metadata_by_slug = {
+        "import-demo": {
+            "description": "Tiny no-model workflow for testing one-click GenAsset import into ComfyUI.",
+            "category": "Setup",
+            "needs_model": False,
+            "model_requirements": [],
+        },
+        "simple-text-to-image-save": {
+            "description": "Tiny text-to-image workflow that saves the result to GenAsset.",
+            "category": "Starter",
+            "needs_model": True,
+            "model_requirements": ["Juggernaut_X_RunDiffusion.safetensors"],
+        },
+        "simple-text-to-image-ai-save": {
+            "description": "Tiny text-to-image workflow where GenAsset Workflow Assistant fills save fields before saving.",
+            "category": "Starter",
+            "needs_model": True,
+            "model_requirements": ["Juggernaut_X_RunDiffusion.safetensors"],
+        },
+    }
+    metadata = metadata_by_slug.get(
+        slug,
+        {
+            "description": "Ready-to-import GenAsset workflow.",
+            "category": "Workflow",
+            "needs_model": False,
+            "model_requirements": [],
+        },
+    )
+    return {
+        "id": slug,
+        "title": _title_from_slug(slug),
+        "description": metadata["description"],
+        "category": metadata["category"],
+        "level": "Beginner",
+        "node_count": node_count,
+        "needs_model": metadata["needs_model"],
+        "model_requirements": metadata["model_requirements"],
+        "tags": ["custom"],
+    }
+
+
+def _mounted_public_workflow_catalog() -> dict[str, Any]:
+    workflows = [_mounted_workflow_card(path) for path in _mounted_workflow_files()]
+    if not workflows:
+        raise RuntimeError("No mounted GenAsset workflows found.")
+    return {"workflows": workflows}
+
+
+def _mounted_public_import_workflow(workflow_id: str) -> dict[str, Any]:
+    clean_id = _validate_catalog_workflow_id(workflow_id)
+    for path in _mounted_workflow_files():
+        slug = _slug_from_workflow_filename(path.name)
+        if clean_id not in {slug, path.name, path.stem}:
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        workflow = _normalize_import_workflow_payload(data)
+        return {
+            "ok": True,
+            "id": slug,
+            "title": _title_from_slug(slug),
+            "workflow": workflow,
+            "warnings": [],
+            "source": str(path),
+        }
+    raise RuntimeError("Workflow not found.")
+
+
+def fetch_public_workflow_catalog() -> dict[str, Any]:
+    try:
+        data = _read_public_json_url(_catalog_url("/api/catalog/workflow-import"))
+        if not isinstance(data, dict) or not isinstance(data.get("workflows"), list):
+            raise RuntimeError("GenAsset catalog did not return a workflow list.")
+        return data
+    except Exception:
+        return _mounted_public_workflow_catalog()
+
+
+def fetch_public_import_workflow(workflow_id: str) -> dict[str, Any]:
+    clean_id = _validate_catalog_workflow_id(workflow_id)
+    try:
+        data = _read_public_json_url(_catalog_url(f"/api/catalog/workflow-import/{urllib.parse.quote(clean_id)}"))
+        workflow = _normalize_import_workflow_payload(data)
+        title = clean_id
+        warnings: list[str] = []
+        if isinstance(data, dict):
+            title = pick_string(data.get("title"), data.get("id"), clean_id)
+            raw_warnings = data.get("warnings")
+            if isinstance(raw_warnings, list):
+                warnings = [str(item) for item in raw_warnings if str(item).strip()]
+        return {"ok": True, "id": clean_id, "title": title, "workflow": workflow, "warnings": warnings}
+    except Exception:
+        return _mounted_public_import_workflow(clean_id)
+
+
+try:
+    from aiohttp import web  # type: ignore
+    from server import PromptServer  # type: ignore
+
+    @PromptServer.instance.routes.get("/genasset/catalog/workflows")
+    async def genasset_catalog_workflows_route(request):  # type: ignore[no-untyped-def]
+        try:
+            return web.json_response(fetch_public_workflow_catalog())
+        except Exception as exc:
+            return web.json_response({"error": str(exc)}, status=502)
+
+    @PromptServer.instance.routes.get("/genasset/catalog/workflows/{workflow_id}")
+    async def genasset_catalog_workflow_route(request):  # type: ignore[no-untyped-def]
+        try:
+            workflow_id = request.match_info.get("workflow_id", "")
+            return web.json_response(fetch_public_import_workflow(workflow_id))
+        except Exception as exc:
+            return web.json_response({"error": str(exc)}, status=404)
+
+except Exception:
+    pass
+
+
 def load_version_payload(base_url: str, workspace_token: str, version_id: str) -> dict[str, Any]:
     path = f"api/v1/versions/{urllib.parse.quote(version_id)}/load"
     url = urllib.parse.urljoin(base_url + "/", path)
@@ -730,6 +974,257 @@ def resolve_workspace_token(token: str) -> tuple[str, str, str]:
         "Paste your GenAsset token into token, or set GENASSET_WORKSPACE_TOKEN, "
         "or create user/genasset.json with token or workspace_token."
     )
+
+
+def package_root() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def genasset_node_version() -> str:
+    pyproject = package_root() / "pyproject.toml"
+    try:
+        text = pyproject.read_text(encoding="utf-8")
+    except Exception:
+        return "unknown"
+    match = re.search(r'(?m)^version\s*=\s*"([^"]+)"', text)
+    return match.group(1) if match else "unknown"
+
+
+def genasset_last_updated_iso() -> str:
+    candidates = [
+        package_root() / "pyproject.toml",
+        package_root() / "__init__.py",
+        package_root() / "nodes.py",
+        package_root() / "js" / "genasset_importer.js",
+    ]
+    mtimes = []
+    for path in candidates:
+        try:
+            mtimes.append(path.stat().st_mtime)
+        except Exception:
+            pass
+    if not mtimes:
+        return ""
+    return datetime.fromtimestamp(max(mtimes), tz=timezone.utc).isoformat()
+
+
+def version_tuple(value: str) -> tuple[int, ...]:
+    parts = re.findall(r"\d+", str(value or ""))
+    return tuple(int(part) for part in parts[:4]) or (0,)
+
+
+def compare_versions(current: str, latest: str) -> int:
+    current_tuple = version_tuple(current)
+    latest_tuple = version_tuple(latest)
+    max_len = max(len(current_tuple), len(latest_tuple))
+    current_tuple = current_tuple + (0,) * (max_len - len(current_tuple))
+    latest_tuple = latest_tuple + (0,) * (max_len - len(latest_tuple))
+    return (latest_tuple > current_tuple) - (latest_tuple < current_tuple)
+
+
+def genasset_token_configured() -> tuple[bool, str, str]:
+    if os.getenv("GENASSET_WORKSPACE_TOKEN", "").strip():
+        return True, "env", "GENASSET_WORKSPACE_TOKEN"
+    try:
+        config, config_path = _read_genasset_config()
+        if pick_string(config.get("workspace_token"), config.get("token")):
+            return True, "genasset.json", config_path
+    except Exception:
+        return False, "", ""
+    return False, "", ""
+
+
+def genasset_manager_status(check: bool = False) -> dict[str, Any]:
+    base_url = _genasset_catalog_base_url()
+    token_configured, token_source, token_source_ref = genasset_token_configured()
+    out: dict[str, Any] = {
+        "ok": True,
+        "name": "GenAsset Node",
+        "version": genasset_node_version(),
+        "last_updated": genasset_last_updated_iso(),
+        "base_url": base_url,
+        "token_configured": token_configured,
+        "token_source": token_source,
+        "token_source_ref": token_source_ref,
+        "connection_checked": False,
+        "connected": None,
+        "api_reachable": None,
+        "workspace_synced": None,
+        "workspace": None,
+        "organization": None,
+        "workspaces": [],
+        "counts": {},
+    }
+    if not check:
+        return out
+    out["connection_checked"] = True
+    try:
+        workspace_token, resolved_source, resolved_ref = resolve_workspace_token(TOKEN_FILE_HINT)
+        out["token_source"] = resolved_source
+        out["token_source_ref"] = resolved_ref
+        url = urllib.parse.urljoin(base_url + "/", "api/v1/workspace?lite=1&include_workspace_list=1")
+        data = request_json("GET", url, workspace_token)
+        workspace = data.get("workspace") if isinstance(data.get("workspace"), dict) else {}
+        out.update(
+            {
+                "connected": True,
+                "api_reachable": True,
+                "workspace_synced": bool(workspace),
+                "workspace": {
+                    "id": str(workspace.get("id") or ""),
+                    "name": str(workspace.get("name") or ""),
+                    "slug": str(workspace.get("slug") or ""),
+                },
+                "organization": workspace.get("organization") if isinstance(workspace.get("organization"), dict) else None,
+                "workspaces": workspace.get("workspaces") if isinstance(workspace.get("workspaces"), list) else [],
+                "counts": data.get("counts") if isinstance(data.get("counts"), dict) else {},
+            }
+        )
+    except Exception as exc:
+        out.update({"ok": False, "connected": False, "api_reachable": False, "workspace_synced": False, "error": str(exc)})
+    return out
+
+
+def fetch_latest_genasset_node_version() -> dict[str, Any]:
+    current = genasset_node_version()
+    latest = ""
+    try:
+        text = urllib.request.urlopen(
+            urllib.request.Request(RAW_GITHUB_PYPROJECT_URL, headers={"User-Agent": "ComfyUI-GenAsset/manager"}),
+            timeout=20,
+        ).read(256 * 1024).decode("utf-8", errors="replace")
+        match = re.search(r'(?m)^version\s*=\s*"([^"]+)"', text)
+        latest = match.group(1) if match else ""
+        if not latest:
+            raise RuntimeError("Could not read latest version.")
+        comparison = compare_versions(current, latest)
+        return {
+            "ok": True,
+            "current_version": current,
+            "latest_version": latest,
+            "update_available": comparison > 0,
+            "message": f"Update available: v{latest}" if comparison > 0 else "GenAsset is up to date.",
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "current_version": current,
+            "latest_version": latest,
+            "update_available": False,
+            "error": str(exc),
+            "message": "Could not check for updates.",
+        }
+
+
+def workflow_name_from_version(version: dict[str, Any], fallback: str) -> str:
+    metadata = version.get("metadata") if isinstance(version.get("metadata"), dict) else {}
+    workflow_meta = metadata.get("workflow") if isinstance(metadata.get("workflow"), dict) else {}
+    workflow_json = version.get("workflow_json") if isinstance(version.get("workflow_json"), dict) else {}
+    return pick_string(workflow_meta.get("name"), workflow_json.get("name"), fallback)
+
+
+def compact_manager_asset(asset: dict[str, Any]) -> dict[str, Any]:
+    current = asset.get("current_version") if isinstance(asset.get("current_version"), dict) else {}
+    workflow_json = current.get("workflow_json") if isinstance(current.get("workflow_json"), dict) else {}
+    node_count = 0
+    importable = False
+    try:
+        workflow = _normalize_import_workflow_payload(workflow_json)
+        node_count = len(workflow.get("nodes") or [])
+        importable = True
+    except Exception:
+        pass
+    return {
+        "id": str(asset.get("id") or ""),
+        "name": str(asset.get("name") or "Untitled asset"),
+        "updated_at": str(asset.get("updated_at") or ""),
+        "current_version_id": str((current or {}).get("id") or asset.get("current_version_id") or ""),
+        "version_number": (current or {}).get("version_number"),
+        "workflow_name": workflow_name_from_version(current, str(asset.get("name") or "Workflow")),
+        "workflow_importable": importable,
+        "node_count": node_count,
+    }
+
+
+def genasset_manager_recent(page_size: int = 10, search: str = "") -> dict[str, Any]:
+    base_url = _genasset_catalog_base_url()
+    workspace_token = require_workspace_token(TOKEN_FILE_HINT)
+    safe_search = str(search or "").strip()[:120]
+    safe_size = max(1, min(50 if safe_search else 12, int(page_size or 10)))
+    params: dict[str, str] = {"page_size": str(safe_size)}
+    if safe_search:
+        params["search"] = safe_search
+    path = f"api/v1/assets?{urllib.parse.urlencode(params)}"
+    data = request_json("GET", urllib.parse.urljoin(base_url + "/", path), workspace_token)
+    raw_assets = data.get("assets") if isinstance(data.get("assets"), list) else []
+    assets = [compact_manager_asset(asset) for asset in raw_assets if isinstance(asset, dict)]
+    workflows = [asset for asset in assets if asset.get("workflow_importable")]
+    return {"assets": assets, "workflows": workflows, "pagination": data.get("pagination") or {}}
+
+
+def genasset_manager_import_workspace_workflow(asset_id: str) -> dict[str, Any]:
+    clean_asset_id = str(asset_id or "").strip()
+    if not looks_like_uuid(clean_asset_id):
+        raise RuntimeError("Invalid GenAsset asset id.")
+    base_url = _genasset_catalog_base_url()
+    workspace_token = require_workspace_token(TOKEN_FILE_HINT)
+    path = f"api/v1/assets/{urllib.parse.quote(clean_asset_id)}?signed_artifacts=0"
+    data = request_json("GET", urllib.parse.urljoin(base_url + "/", path), workspace_token)
+    asset = data.get("asset") if isinstance(data.get("asset"), dict) else {}
+    versions = data.get("versions") if isinstance(data.get("versions"), list) else []
+    if not versions:
+        raise RuntimeError("This asset has no versions.")
+    current_id = str(asset.get("current_version_id") or "")
+    version = next((item for item in versions if isinstance(item, dict) and str(item.get("id") or "") == current_id), None)
+    if version is None:
+        version = versions[0] if isinstance(versions[0], dict) else {}
+    workflow = _normalize_import_workflow_payload(version.get("workflow_json") if isinstance(version, dict) else {})
+    return {
+        "ok": True,
+        "id": clean_asset_id,
+        "title": workflow_name_from_version(version, str(asset.get("name") or "GenAsset workflow")),
+        "asset": {"id": str(asset.get("id") or clean_asset_id), "name": str(asset.get("name") or "")},
+        "version": {"id": str(version.get("id") or ""), "version_number": version.get("version_number")},
+        "workflow": workflow,
+        "warnings": [],
+    }
+
+
+try:
+    from aiohttp import web  # type: ignore
+    from server import PromptServer  # type: ignore
+
+    @PromptServer.instance.routes.get("/genasset/manager/status")
+    async def genasset_manager_status_route(request):  # type: ignore[no-untyped-def]
+        check = request.query.get("check", "0") in {"1", "true", "yes"}
+        try:
+            return web.json_response(genasset_manager_status(check=check))
+        except Exception as exc:
+            return web.json_response({"ok": False, "error": str(exc)}, status=500)
+
+    @PromptServer.instance.routes.get("/genasset/manager/update-check")
+    async def genasset_manager_update_check_route(request):  # type: ignore[no-untyped-def]
+        return web.json_response(fetch_latest_genasset_node_version())
+
+    @PromptServer.instance.routes.get("/genasset/manager/recent")
+    async def genasset_manager_recent_route(request):  # type: ignore[no-untyped-def]
+        try:
+            page_size = pick_int(request.query.get("page_size"), 10)
+            search = str(request.query.get("search") or "")
+            return web.json_response(genasset_manager_recent(page_size=page_size, search=search))
+        except Exception as exc:
+            return web.json_response({"error": str(exc), "assets": [], "workflows": []}, status=502)
+
+    @PromptServer.instance.routes.get("/genasset/manager/workspace-workflows/{asset_id}")
+    async def genasset_manager_workspace_workflow_route(request):  # type: ignore[no-untyped-def]
+        try:
+            asset_id = request.match_info.get("asset_id", "")
+            return web.json_response(genasset_manager_import_workspace_workflow(asset_id))
+        except Exception as exc:
+            return web.json_response({"error": str(exc)}, status=404)
+
+except Exception:
+    pass
 
 
 def key_loaded_note(token_source: str, token_source_ref: str) -> str:
