@@ -694,6 +694,7 @@ function workflowCard(item, onImport) {
 }
 
 function renderAll(body, title) {
+  if (!body || !title || !document.body.contains(body)) return false;
   const version = state.status?.version ? `v${state.status.version}` : "";
   title.innerHTML = `GenAsset <span class="genasset-manager-version">${escapeHtml(version)}</span>`;
   renderStatus(body);
@@ -701,6 +702,13 @@ function renderAll(body, title) {
   renderWorkspace(body);
   renderPublic(body);
   renderRecent(body);
+  return true;
+}
+
+function renderIfModalOpen(body) {
+  const modal = body?.closest?.(".genasset-manager-modal");
+  const title = modal?.querySelector?.(".genasset-manager-title");
+  return renderAll(body, title);
 }
 
 async function loadInitialStatus(body, title) {
@@ -722,7 +730,7 @@ async function checkConnection(body) {
   } catch (error) {
     state.status = { ...(state.status || {}), connected: false, api_reachable: false, workspace_synced: false, error: error?.message || "Connection check failed." };
   }
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
 }
 
 async function checkUpdate(body) {
@@ -734,12 +742,12 @@ async function checkUpdate(body) {
   } catch (error) {
     state.update = { ok: false, error: error?.message || "Update check failed." };
   }
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
 }
 
 async function runUpdate(body) {
   state.update = { ...(state.update || {}), updating: true, error: "", message: "" };
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
   try {
     const response = await fetchGenAssetApi("/genasset/manager/update", { method: "POST" });
     state.update = await readJsonResponse(response);
@@ -753,7 +761,7 @@ async function runUpdate(body) {
       message: "GenAsset update failed.",
     };
   }
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
 }
 
 async function loadRecent(body) {
@@ -767,7 +775,7 @@ async function loadRecent(body) {
     state.recentAssets = [];
     alert(error?.message || "Could not load recent GenAsset assets.");
   }
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
 }
 
 async function loadWorkspaceWorkflows(body) {
@@ -789,7 +797,7 @@ async function loadWorkspaceWorkflows(body) {
     state.workspaceWorkflows = [];
     alert(error?.message || "Could not load workspace GenAsset workflows.");
   }
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
 }
 
 async function loadPublicWorkflows(body) {
@@ -803,7 +811,7 @@ async function loadPublicWorkflows(body) {
     state.publicWorkflows = [];
     alert(error?.message || "Could not load public GenAsset workflows.");
   }
-  renderAll(body, body.closest(".genasset-manager-modal").querySelector(".genasset-manager-title"));
+  renderIfModalOpen(body);
 }
 
 async function importPublicWorkflow(item, button) {
@@ -823,11 +831,13 @@ async function importWorkflowFromUrl(url, title, button) {
     const data = await readJsonResponse(response);
     if (!data?.workflow?.nodes || !Array.isArray(data.workflow.nodes)) throw new Error("GenAsset did not return a visual workflow.");
     await loadWorkflowIntoComfy(data.workflow, data.title || title);
-    button.closest(".genasset-manager-backdrop")?.remove();
+    closeModal(button.closest(".genasset-manager-backdrop"));
   } catch (error) {
     alert(error?.message || "Could not import GenAsset workflow.");
-    button.disabled = false;
-    button.textContent = original;
+    if (document.body.contains(button)) {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
 }
 
