@@ -351,11 +351,11 @@ function formatRelativeDate(value) {
   const diff = Math.max(0, Date.now() - time);
   const minutes = Math.floor(diff / 60000);
   if (minutes < 2) return "just now";
-  if (minutes < 60) return `${minutes} minutes ago`;
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `${hours} hours ago`;
+  if (hours < 48) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
   const days = Math.floor(hours / 24);
-  return `${days} days ago`;
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
 function emptyMessage(text) {
@@ -595,9 +595,12 @@ function renderRecent(body) {
   for (const item of state.recentAssets.slice(0, 6)) {
     const row = document.createElement("div");
     row.className = "genasset-manager-recent-item";
+    const meta = [item.workflow_name || "Workflow", formatRelativeDate(item.updated_at), item.user_name]
+      .filter(Boolean)
+      .join(" · ");
     row.innerHTML = `
       <div class="genasset-manager-card-title">${escapeHtml(item.name)}</div>
-      <div class="genasset-manager-card-meta">${escapeHtml(item.workflow_name || "Workflow")} · ${escapeHtml(formatRelativeDate(item.updated_at))}</div>
+      <div class="genasset-manager-card-meta">${escapeHtml(meta)}</div>
     `;
     list.appendChild(row);
   }

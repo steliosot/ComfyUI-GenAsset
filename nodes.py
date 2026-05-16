@@ -1265,8 +1265,40 @@ def workflow_name_from_version(version: dict[str, Any], fallback: str) -> str:
     return pick_string(workflow_meta.get("name"), workflow_json.get("name"), fallback)
 
 
+def _display_name_from_email(value: str) -> str:
+    clean = str(value or "").strip()
+    if "@" not in clean:
+        return clean
+    local = clean.split("@", 1)[0]
+    parts = [part for part in re.split(r"[._\-]+", local) if part]
+    return " ".join(part[:1].upper() + part[1:] for part in parts) or clean
+
+
+def manager_actor_name(*values: Any) -> str:
+    for value in values:
+        if isinstance(value, dict):
+            name = pick_string(
+                value.get("display_name"),
+                value.get("full_name"),
+                value.get("name"),
+                value.get("username"),
+            )
+            if name:
+                return name
+            email = pick_string(value.get("email"))
+            if email:
+                return _display_name_from_email(email)
+        else:
+            text = pick_string(value)
+            if text:
+                return _display_name_from_email(text)
+    return ""
+
+
 def compact_manager_asset(asset: dict[str, Any]) -> dict[str, Any]:
     current = asset.get("current_version") if isinstance(asset.get("current_version"), dict) else {}
+    metadata = asset.get("metadata") if isinstance(asset.get("metadata"), dict) else {}
+    current_metadata = current.get("metadata") if isinstance(current.get("metadata"), dict) else {}
     workflow_json = current.get("workflow_json") if isinstance(current.get("workflow_json"), dict) else {}
     node_count = 0
     importable = False
@@ -1283,6 +1315,20 @@ def compact_manager_asset(asset: dict[str, Any]) -> dict[str, Any]:
         "current_version_id": str((current or {}).get("id") or asset.get("current_version_id") or ""),
         "version_number": (current or {}).get("version_number"),
         "workflow_name": workflow_name_from_version(current, str(asset.get("name") or "Workflow")),
+        "user_name": manager_actor_name(
+            asset.get("updated_by"),
+            asset.get("created_by"),
+            asset.get("owner"),
+            asset.get("user"),
+            metadata.get("updated_by"),
+            metadata.get("created_by"),
+            metadata.get("owner"),
+            metadata.get("user"),
+            current.get("created_by"),
+            current.get("user"),
+            current_metadata.get("created_by"),
+            current_metadata.get("user"),
+        ),
         "workflow_importable": importable,
         "node_count": node_count,
     }
