@@ -1382,8 +1382,27 @@ try:
     from aiohttp import web  # type: ignore
     from server import PromptServer  # type: ignore
 
+    def _genasset_manager_origin_block(request):  # type: ignore[no-untyped-def]
+        origin = str(request.headers.get("Origin") or request.headers.get("Referer") or "").strip()
+        if not origin:
+            return None
+        try:
+            origin_host = urllib.parse.urlparse(origin).netloc.lower()
+        except Exception:
+            origin_host = ""
+        request_host = str(request.headers.get("Host") or getattr(request, "host", "") or "").lower()
+        if origin_host and request_host and origin_host != request_host:
+            return web.json_response(
+                {"ok": False, "error": "Cross-origin GenAsset manager requests are not allowed."},
+                status=403,
+            )
+        return None
+
     @PromptServer.instance.routes.get("/genasset/manager/status")
     async def genasset_manager_status_route(request):  # type: ignore[no-untyped-def]
+        blocked = _genasset_manager_origin_block(request)
+        if blocked is not None:
+            return blocked
         check = request.query.get("check", "0") in {"1", "true", "yes"}
         try:
             return web.json_response(genasset_manager_status(check=check))
@@ -1392,14 +1411,23 @@ try:
 
     @PromptServer.instance.routes.get("/genasset/manager/update-check")
     async def genasset_manager_update_check_route(request):  # type: ignore[no-untyped-def]
+        blocked = _genasset_manager_origin_block(request)
+        if blocked is not None:
+            return blocked
         return web.json_response(fetch_latest_genasset_node_version())
 
     @PromptServer.instance.routes.post("/genasset/manager/update")
     async def genasset_manager_update_route(request):  # type: ignore[no-untyped-def]
+        blocked = _genasset_manager_origin_block(request)
+        if blocked is not None:
+            return blocked
         return web.json_response(await asyncio.to_thread(perform_genasset_node_update))
 
     @PromptServer.instance.routes.get("/genasset/manager/recent")
     async def genasset_manager_recent_route(request):  # type: ignore[no-untyped-def]
+        blocked = _genasset_manager_origin_block(request)
+        if blocked is not None:
+            return blocked
         try:
             page_size = pick_int(request.query.get("page_size"), 10)
             search = str(request.query.get("search") or "")
@@ -1409,6 +1437,9 @@ try:
 
     @PromptServer.instance.routes.get("/genasset/manager/workspace-workflows/{asset_id}")
     async def genasset_manager_workspace_workflow_route(request):  # type: ignore[no-untyped-def]
+        blocked = _genasset_manager_origin_block(request)
+        if blocked is not None:
+            return blocked
         try:
             asset_id = request.match_info.get("asset_id", "")
             return web.json_response(genasset_manager_import_workspace_workflow(asset_id))
