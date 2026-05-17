@@ -21,6 +21,8 @@ import numpy as np
 import torch
 from PIL import Image
 
+from .health import build_repro_lock
+
 
 CATEGORY = "genasset"
 FilePart = tuple[str, bytes, str]
@@ -1860,6 +1862,7 @@ class GenAssetSaveGeneration:
                 unique_id=unique_id,
                 asset_name=asset_name,
             )
+            capture["metadata"]["repro_lock"] = build_repro_lock(api_prompt, workflow_from_extra(extra_pnginfo))
             capture["metadata"]["image_quality"] = quality
             capture["metadata"]["validation"] = {
                 "black_image_guard": "passed",

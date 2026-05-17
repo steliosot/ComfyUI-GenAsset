@@ -62,6 +62,13 @@ const state = {
   recentAssets: [],
   publicSearch: "",
   workspaceSearch: "",
+  activeTab: "workflows",
+  health: {
+    loading: false,
+    title: "Workflow Health",
+    data: null,
+    error: "",
+  },
 };
 
 function resetTransientState() {
@@ -137,6 +144,33 @@ function ensureStyle() {
       max-height: calc(min(820px, calc(100vh - 28px)) - 76px);
       overflow: auto;
       padding: 16px;
+    }
+    .genasset-manager-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px 0;
+      border-bottom: 1px solid #30333a;
+      background: #1d1f23;
+    }
+    .genasset-manager-tab {
+      border: 1px solid #343841;
+      border-bottom: 0;
+      border-radius: 7px 7px 0 0;
+      background: #202226;
+      color: #b9bec8;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 750;
+      min-height: 34px;
+      padding: 0 14px;
+    }
+    .genasset-manager-tab-active {
+      background: #17352b;
+      border-color: #2f8f6f;
+      color: #8ee7bd;
+    }
+    .genasset-manager-body-health {
+      grid-template-columns: 300px minmax(0, 1fr);
     }
     .genasset-manager-section {
       border: 1px solid #343841;
@@ -241,6 +275,80 @@ function ensureStyle() {
       display: grid;
       gap: 8px;
     }
+    .genasset-health-actions {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .genasset-health-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .genasset-health-stat {
+      border: 1px solid #343841;
+      border-radius: 7px;
+      background: #181a1e;
+      padding: 10px;
+    }
+    .genasset-health-stat strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1.1;
+      margin-bottom: 3px;
+    }
+    .genasset-health-stat span {
+      color: #aeb4bf;
+      font-size: 11px;
+      font-weight: 650;
+      text-transform: uppercase;
+    }
+    .genasset-health-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+    }
+    .genasset-health-table th,
+    .genasset-health-table td {
+      border-bottom: 1px solid #343841;
+      padding: 8px 7px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .genasset-health-table th {
+      color: #aeb4bf;
+      font-size: 10px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .genasset-health-chip {
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 750;
+      padding: 3px 7px;
+      white-space: nowrap;
+    }
+    .genasset-health-chip-good { background: #143d30; color: #8ee7bd; }
+    .genasset-health-chip-bad { background: #4a2027; color: #ffb8c0; }
+    .genasset-health-chip-warn { background: #4b3a18; color: #ffd77d; }
+    .genasset-health-pre {
+      background: #0d281f;
+      border-radius: 8px;
+      color: #d8f8e9;
+      font-size: 12px;
+      line-height: 1.45;
+      max-height: 360px;
+      overflow: auto;
+      padding: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .genasset-health-link {
+      color: #93c5fd;
+      text-decoration: none;
+    }
     .genasset-manager-card {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -318,6 +426,8 @@ function ensureStyle() {
     }
     @media (max-width: 940px) {
       .genasset-manager-body { grid-template-columns: 1fr; }
+      .genasset-manager-body-health { grid-template-columns: 1fr; }
+      .genasset-health-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .genasset-manager-controls { grid-template-columns: 1fr; }
       .genasset-manager-search-row { grid-template-columns: 1fr; }
     }
@@ -399,13 +509,35 @@ function createManagerModal() {
 
   const body = document.createElement("div");
   body.className = "genasset-manager-body";
-  modal.append(header, body);
+
+  const tabs = document.createElement("div");
+  tabs.className = "genasset-manager-tabs";
+  tabs.innerHTML = `
+    <button class="genasset-manager-tab" type="button" data-tab="workflows">Workflows</button>
+    <button class="genasset-manager-tab" type="button" data-tab="health">Health</button>
+  `;
+  tabs.querySelectorAll("[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeTab = button.dataset.tab || "workflows";
+      renderAll(body, title);
+    });
+  });
+
+  modal.append(header, tabs, body);
   backdrop.append(modal);
   document.body.appendChild(backdrop);
   return { backdrop, body, title };
 }
 
 function renderShell(body) {
+  body.className = state.activeTab === "health" ? "genasset-manager-body genasset-manager-body-health" : "genasset-manager-body";
+  if (state.activeTab === "health") {
+    body.innerHTML = `
+      <div class="genasset-manager-section" data-panel="health-controls"></div>
+      <div class="genasset-manager-section" data-panel="health-results"></div>
+    `;
+    return;
+  }
   body.innerHTML = `
     <div>
       <div class="genasset-manager-section" data-panel="status"></div>
@@ -693,10 +825,246 @@ function workflowCard(item, onImport) {
   return row;
 }
 
+function renderHealth(body) {
+  const controls = panel(body, "health-controls");
+  const results = panel(body, "health-results");
+  const status = state.status || {};
+  controls.innerHTML = `
+    <div class="genasset-manager-section-title"><span>Workflow Health</span></div>
+    <div class="genasset-manager-muted">Inspect the current graph before queueing. Resolver is suggestion-only; Doctor uses GenAsset AI through the configured workspace token.</div>
+    <div class="genasset-manager-row" style="margin-top:12px;"><span>Base URL</span><strong>${escapeHtml(status.base_url || "https://genasset.xyz")}</strong></div>
+    <div class="genasset-manager-row"><span>Token</span><span class="${status.token_configured ? "genasset-manager-ok" : "genasset-manager-warn"}">${escapeHtml(status.token_configured ? status.token_source || "configured" : "not configured")}</span></div>
+    <div class="genasset-health-actions">
+      <button class="genasset-manager-button genasset-manager-button-primary" data-action="health-doctor">Run Doctor</button>
+      <button class="genasset-manager-button" data-action="health-resolve">Resolve Models</button>
+      <button class="genasset-manager-button" data-action="health-repro">Preview Repro Lock</button>
+      <button class="genasset-manager-button" data-action="health-refresh">Refresh Current Workflow</button>
+    </div>
+  `;
+  controls.querySelector('[data-action="health-doctor"]').addEventListener("click", () => runHealthAction(body, "doctor"));
+  controls.querySelector('[data-action="health-resolve"]').addEventListener("click", () => runHealthAction(body, "resolve"));
+  controls.querySelector('[data-action="health-repro"]').addEventListener("click", () => runHealthAction(body, "repro"));
+  controls.querySelector('[data-action="health-refresh"]').addEventListener("click", () => runHealthAction(body, "refresh"));
+
+  renderHealthResults(results);
+}
+
+function renderHealthResults(results) {
+  const health = state.health || {};
+  if (health.loading) {
+    results.innerHTML = `
+      <div class="genasset-manager-section-title"><span>${escapeHtml(health.title || "Workflow Health")}</span></div>
+      <div class="genasset-manager-muted">Reading the current workflow...</div>
+    `;
+    return;
+  }
+  if (health.error) {
+    results.innerHTML = `
+      <div class="genasset-manager-section-title"><span>${escapeHtml(health.title || "Workflow Health")}</span></div>
+      <div class="genasset-manager-bad">${escapeHtml(health.error)}</div>
+    `;
+    return;
+  }
+  if (!health.data) {
+    results.innerHTML = `
+      <div class="genasset-manager-section-title"><span>Health results</span></div>
+      <div class="genasset-manager-muted">Run Doctor or Resolve Models to inspect the current workflow.</div>
+    `;
+    return;
+  }
+  if (health.kind === "resolve") return renderModelResolverResults(results, health.data);
+  if (health.kind === "repro") return renderReproResults(results, health.data);
+  if (health.kind === "doctor") return renderDoctorResults(results, health.data);
+  if (health.kind === "refresh") return renderWorkflowRefreshResults(results, health.data);
+}
+
+function healthStat(label, value) {
+  return `<div class="genasset-health-stat"><strong>${escapeHtml(value ?? 0)}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function healthChip(text, kind) {
+  const suffix = kind === "good" ? "good" : kind === "bad" ? "bad" : "warn";
+  return `<span class="genasset-health-chip genasset-health-chip-${suffix}">${escapeHtml(text)}</span>`;
+}
+
+function renderModelResolverResults(results, data) {
+  const summary = data.summary || {};
+  const models = Array.isArray(data.models) ? data.models : [];
+  const rows = models.map((model) => {
+    const sources = Array.isArray(model.suggestions)
+      ? model.suggestions.map((source) => `<a class="genasset-health-link" target="_blank" href="${escapeHtml(source.url)}">${escapeHtml(source.label)}</a>`).join(" · ")
+      : "";
+    return `
+      <tr>
+        <td>${healthChip(model.status || "unknown", model.status === "found" ? "good" : "bad")}</td>
+        <td>${escapeHtml(model.type || "model")}</td>
+        <td><strong>${escapeHtml(model.name || "")}</strong><div class="genasset-manager-small">${escapeHtml([model.node_class, model.input].filter(Boolean).join(" · "))}</div></td>
+        <td>${escapeHtml((model.expected_folders || []).join(", "))}</td>
+        <td>${sources || escapeHtml(model.matched_folder || "")}</td>
+      </tr>
+    `;
+  }).join("");
+  results.innerHTML = `
+    <div class="genasset-manager-section-title"><span>Model Resolver</span></div>
+    <div class="genasset-health-summary">
+      ${healthStat("Models", summary.total)}
+      ${healthStat("Found", summary.found)}
+      ${healthStat("Missing", summary.missing)}
+      ${healthStat("Mode", "Suggest")}
+    </div>
+    ${rows ? `
+      <table class="genasset-health-table">
+        <thead><tr><th>Status</th><th>Type</th><th>Model</th><th>Expected folder</th><th>Source</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    ` : `<div class="genasset-manager-muted">No model loader inputs were detected in this workflow.</div>`}
+  `;
+}
+
+function renderReproResults(results, data) {
+  const repro = data.repro_lock || data;
+  results.innerHTML = `
+    <div class="genasset-manager-section-title"><span>Repro Lock preview</span></div>
+    <div class="genasset-manager-muted" style="margin-bottom:10px;">This metadata is attached automatically when Save To GenAsset creates a version.</div>
+    <pre class="genasset-health-pre">${escapeHtml(JSON.stringify(repro, null, 2))}</pre>
+  `;
+}
+
+function renderDoctorResults(results, data) {
+  const diagnostics = data.diagnostics || {};
+  const summary = diagnostics.summary || {};
+  const doctor = data.doctor || {};
+  const doctorText = doctor.summary || doctor.explanation || doctor.notes_md || doctor.message || JSON.stringify(doctor, null, 2);
+  const issues = Array.isArray(diagnostics.issues) ? diagnostics.issues : [];
+  const rows = issues.map((issue) => `
+    <tr>
+      <td>${healthChip(issue.severity || "info", issue.severity === "error" ? "bad" : "warn")}</td>
+      <td>${escapeHtml(issue.kind || "")}</td>
+      <td>${escapeHtml(issue.message || "")}</td>
+    </tr>
+  `).join("");
+  results.innerHTML = `
+    <div class="genasset-manager-section-title"><span>Workflow Doctor</span></div>
+    <div class="genasset-health-summary">
+      ${healthStat("Nodes", summary.node_count)}
+      ${healthStat("Errors", summary.error_count)}
+      ${healthStat("Warnings", summary.warning_count)}
+      ${healthStat("Missing models", summary.missing_model_count)}
+    </div>
+    <div class="genasset-manager-section" style="margin-bottom:12px;">
+      <div class="genasset-manager-section-title"><span>GenAsset AI guidance</span></div>
+      <pre class="genasset-health-pre">${escapeHtml(typeof doctorText === "string" ? doctorText : JSON.stringify(doctorText, null, 2))}</pre>
+    </div>
+    ${rows ? `
+      <table class="genasset-health-table">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Message</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    ` : `<div class="genasset-manager-muted">No deterministic issues were found.</div>`}
+  `;
+}
+
+function renderWorkflowRefreshResults(results, data) {
+  results.innerHTML = `
+    <div class="genasset-manager-section-title"><span>Current workflow</span></div>
+    <div class="genasset-health-summary">
+      ${healthStat("Prompt nodes", data.prompt_nodes)}
+      ${healthStat("Registered node types", data.known_node_types)}
+      ${healthStat("Workflow nodes", data.workflow_nodes)}
+      ${healthStat("Links", data.links)}
+    </div>
+  `;
+}
+
+async function runHealthAction(body, kind) {
+  const titles = {
+    doctor: "Running Workflow Doctor",
+    resolve: "Resolving models",
+    repro: "Previewing Repro Lock",
+    refresh: "Refreshing current workflow",
+  };
+  state.health = { loading: true, title: titles[kind] || "Workflow Health", data: null, error: "", kind };
+  renderIfModalOpen(body);
+  try {
+    const payload = await currentWorkflowPayload({
+      base_url: state.status?.base_url || "https://genasset.xyz",
+      token: "ComfyUI/user/genasset.json",
+    });
+    if (kind === "refresh") {
+      state.health = {
+        loading: false,
+        title: "Current workflow",
+        kind,
+        error: "",
+        data: {
+          prompt_nodes: Object.keys(payload.prompt || {}).length,
+          known_node_types: payload.known_node_types.length,
+          workflow_nodes: Array.isArray(payload.workflow?.nodes) ? payload.workflow.nodes.length : 0,
+          links: Array.isArray(payload.workflow?.links) ? payload.workflow.links.length : 0,
+        },
+      };
+    } else {
+      const route = kind === "doctor" ? "/genasset/health/doctor" : kind === "repro" ? "/genasset/health/repro" : "/genasset/health/resolve";
+      const response = await fetchGenAssetApi(route, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await readJsonResponse(response);
+      state.health = { loading: false, title: titles[kind] || "Workflow Health", kind, data, error: "" };
+    }
+  } catch (error) {
+    state.health = {
+      loading: false,
+      title: kind === "doctor" ? "Workflow Doctor needs GenAsset AI" : titles[kind] || "Workflow Health",
+      kind,
+      data: null,
+      error: error?.message || "Workflow health check failed.",
+    };
+  }
+  renderIfModalOpen(body);
+}
+
+async function currentWorkflowPayload(extra = {}) {
+  const comfyApp = getComfyApp();
+  const graphToPrompt = comfyApp?.graphToPrompt || window.app?.graphToPrompt;
+  if (!graphToPrompt) throw new Error("ComfyUI graphToPrompt is not available yet.");
+  const graphPrompt = await graphToPrompt.call(comfyApp || window.app);
+  const workflow = graphPrompt?.workflow || comfyApp?.graph?.serialize?.() || window.app?.graph?.serialize?.() || {};
+  const prompt = graphPrompt?.output || graphPrompt?.prompt || graphPrompt || {};
+  return {
+    workflow,
+    prompt,
+    known_node_types: knownNodeTypes(),
+    ...extra,
+  };
+}
+
+function knownNodeTypes() {
+  const types = new Set();
+  const registry = window.LiteGraph?.registered_node_types || {};
+  for (const key of Object.keys(registry)) {
+    types.add(key);
+    const value = registry[key];
+    if (value?.comfyClass) types.add(value.comfyClass);
+    if (value?.type) types.add(value.type);
+  }
+  return [...types];
+}
+
 function renderAll(body, title) {
   if (!body || !title || !document.body.contains(body)) return false;
   const version = state.status?.version ? `v${state.status.version}` : "";
   title.innerHTML = `GenAsset <span class="genasset-manager-version">${escapeHtml(version)}</span>`;
+  const modal = body.closest(".genasset-manager-modal");
+  modal?.querySelectorAll?.(".genasset-manager-tab").forEach((tab) => {
+    tab.classList.toggle("genasset-manager-tab-active", tab.dataset.tab === state.activeTab);
+  });
+  renderShell(body);
+  if (state.activeTab === "health") {
+    renderHealth(body);
+    return true;
+  }
   renderStatus(body);
   renderUpdate(body);
   renderWorkspace(body);

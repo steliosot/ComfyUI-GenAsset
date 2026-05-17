@@ -20,6 +20,13 @@ from .nodes import (
     GenAssetWorkflowAssistant,
 )
 
+try:
+    from .server import register_routes
+
+    register_routes()
+except Exception as exc:
+    print(f"[GenAsset] Health routes unavailable: {exc}")
+
 NODE_CLASS_MAPPINGS = {
     "GenAssetTestConnection": GenAssetTestConnection,
     "GenAssetWorkflowAssistant": GenAssetWorkflowAssistant,
