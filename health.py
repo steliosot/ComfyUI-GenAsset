@@ -17,6 +17,7 @@ except Exception:  # pragma: no cover - ComfyUI normally provides torch.
 
 SECRET_KEYS = {"workspace_token", "token", "authorization", "api_key", "secret", "service_role_key"}
 IGNORED_MODEL_VALUES = {"", "none", "null", "undefined", "default", "auto", "random"}
+MODEL_FILE_RE = re.compile(r"\.(safetensors|ckpt|pt|pth|bin|gguf|onnx|diffusers)$", re.I)
 
 MODEL_KEY_FOLDERS: dict[str, list[str]] = {
     "ckpt_name": ["checkpoints"],
@@ -110,7 +111,30 @@ def _looks_like_model_ref(value: Any) -> bool:
         return False
     if len(text) > 260:
         return False
-    return bool(re.search(r"\.(safetensors|ckpt|pt|pth|bin|gguf|onnx|diffusers)$", text, re.I)) or "/" in text or "\\" in text
+    return bool(MODEL_FILE_RE.search(text))
+
+
+def _looks_like_model_key(input_key: str) -> bool:
+    key = input_key.lower()
+    if key in MODEL_KEY_FOLDERS:
+        return True
+    model_terms = (
+        "model",
+        "ckpt",
+        "checkpoint",
+        "unet",
+        "vae",
+        "lora",
+        "controlnet",
+        "control_net",
+        "clip",
+        "embedding",
+        "upscale",
+        "ipadapter",
+        "style",
+    )
+    value_terms = ("name", "file", "path")
+    return any(term in key for term in model_terms) and any(term in key for term in value_terms)
 
 
 def _folders_for_model_ref(node_class: str, input_key: str, value: Any) -> tuple[str, list[str]]:
@@ -118,6 +142,8 @@ def _folders_for_model_ref(node_class: str, input_key: str, value: Any) -> tuple
     klass = node_class.lower()
     if key in MODEL_KEY_FOLDERS:
         return _type_from_folder(MODEL_KEY_FOLDERS[key][0]), MODEL_KEY_FOLDERS[key]
+    if not (_looks_like_model_ref(value) or _looks_like_model_key(key)):
+        return "", []
     if "lora" in klass:
         return "lora", ["loras"]
     if "checkpoint" in klass or "ckpt" in klass:
@@ -499,4 +525,3 @@ def build_health_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "repro_lock": repro,
         "workflow_json": redact_secret_fields({"api_prompt": api_prompt, "workflow": workflow}),
     }
-

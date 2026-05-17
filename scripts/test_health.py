@@ -77,6 +77,13 @@ def main() -> None:
         assert any(item["name"] == "present.safetensors" and item["file"].get("sha256") for item in resolved["models"])
         assert any(item["name"] == "missing-lora.safetensors" and item["suggestions"] for item in resolved["models"])
 
+        prompt_text_fixture = {
+            "1": {"class_type": "CLIPTextEncode", "inputs": {"text": "cinematic portrait, soft light"}},
+            "2": {"class_type": "GenAssetWorkflowAssistant", "inputs": {"token": "ComfyUI/user/genasset.json"}},
+        }
+        resolved_text = health.resolve_models(prompt_text_fixture)
+        assert resolved_text["summary"]["total"] == 0, json.dumps(resolved_text, indent=2)
+
         diagnostics = health.diagnose_workflow(fixture_prompt(), known_node_types=["CheckpointLoaderSimple", "LoraLoader", "KSampler"])
         assert diagnostics["summary"]["error_count"] >= 3, json.dumps(diagnostics, indent=2)
         assert any(issue["kind"] == "missing_custom_node" for issue in diagnostics["issues"])
@@ -94,4 +101,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
