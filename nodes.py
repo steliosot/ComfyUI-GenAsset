@@ -1393,6 +1393,9 @@ try:
         except Exception:
             origin_host = ""
         request_host = str(request.headers.get("Host") or getattr(request, "host", "") or "").lower()
+        origin_name = origin_host.split(":", 1)[0].strip("[]")
+        if origin_name in {"localhost", "127.0.0.1", "::1"}:
+            return None
         if origin_host and request_host and origin_host != request_host:
             return web.json_response(
                 {"ok": False, "error": "Cross-origin GenAsset manager requests are not allowed."},
