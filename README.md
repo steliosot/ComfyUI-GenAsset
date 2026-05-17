@@ -8,6 +8,8 @@ ComfyUI nodes for saving, loading, and versioning image generations in **GenAsse
 
 GenAsset keeps the output image together with the recipe (prompt, model, seed, sampler/scheduler, workflow JSON, metadata), so teams and agents can reproduce and reuse results reliably.
 
+Current package version: **v1.0.15**.
+
 ## Start Free
 
 Create your GenAsset workspace and token at:
@@ -27,6 +29,8 @@ A Flux GGUF txt2img workflow using **Save To GenAsset**.
 - Compare versions and capture metadata changes.
 - Branch/fork creative directions without losing lineage.
 - Upload upstream `LoadImage` inputs as GenAsset input artifacts when available.
+- Add automatic Repro Lock metadata to every saved generation.
+- Check workflow health with the GenAsset Manager Health tab before queueing.
 - Enable safer handoff between humans and AI agents.
 
 ## Included Nodes
@@ -61,6 +65,19 @@ genasset
 | `Upsert Asset Tags Fields` | Updates asset-level fields such as tags and notes. | `base_url`, `token`, `asset_id`, `tags_csv`, `notes_md` | `asset_id`, `asset_json`, `status_json` |
 | `Asset Summary In GenAsset` | Fetches compact summary information for one asset. | `base_url`, `token`, `asset_id` | `summary`, `asset_json`, `status_json` |
 
+### Manager Health Tools
+
+The GenAsset toolbar panel also includes a **Health** tab. These are manager tools rather than standalone canvas nodes:
+
+| Tool | What it does | Uses GenAsset AI? |
+| --- | --- | --- |
+| `Refresh Current Workflow` | Reads the current ComfyUI graph/API prompt and summarizes node/link counts. | No |
+| `Resolve Models` | Finds required checkpoints, UNets/GGUFs, LoRAs, VAEs, ControlNets, CLIP files, embeddings, upscale models, and related files. It reports found/missing files and expected ComfyUI folders. | No |
+| `Preview Repro Lock` | Shows the Repro Lock metadata that `Save To GenAsset` will attach automatically. | No |
+| `Run Doctor` | Sends a redacted deterministic health payload to GenAsset AI and returns plain-language issues and fix steps. | Yes, through the configured GenAsset workspace token/API |
+
+Model Resolver v1 is suggestion-only. It gives expected folders and Hugging Face/Civitai search links, but it does not auto-download or install files.
+
 ### Save Capture
 
 `Save To GenAsset` captures the following automatically when the graph exposes it:
@@ -74,6 +91,13 @@ genasset
 - upstream node ids
 - input images from upstream `LoadImage` nodes, uploaded as GenAsset input artifacts when the files are available in the ComfyUI input folder
 - ComfyUI API prompt and workflow JSON, with token-like fields redacted
+- `metadata.repro_lock` with environment and reproducibility details:
+  - ComfyUI path/branch/commit when available
+  - GenAsset node version
+  - Python, Torch, CUDA, and MPS information
+  - installed custom-node names, versions, and git commits when available
+  - referenced model metadata with hashes when files are small enough, or size/mtime fallback for large files
+  - stable workflow hash
 - basic tags derived from the prompt/model
 - image quality metrics
 
@@ -130,7 +154,20 @@ asset_name = your asset name
 
 After installing or updating this node pack, restart ComfyUI and click `GenAsset` in the top toolbar, next to Manager.
 
-The panel can test your GenAsset connection, show recent assets, and import public or workspace workflows. Choose a workflow and click `Import`. The workflow is loaded onto the canvas, but it is not queued automatically.
+The panel can test your GenAsset connection, show recent assets, import public or workspace workflows, update the node pack, and run workflow health checks. Choose a workflow and click `Import`. The workflow is loaded onto the canvas, but it is not queued automatically.
+
+### Health Tab
+
+Open `GenAsset -> Health` to inspect the currently loaded graph.
+
+Recommended flow before sharing or queueing a new workflow:
+
+1. Click `Refresh Current Workflow`.
+2. Click `Resolve Models` and install any missing files in the suggested ComfyUI folders.
+3. Click `Preview Repro Lock` if you want to inspect the metadata that saves will attach.
+4. Click `Run Doctor` for plain-language issue explanations and fix suggestions.
+
+`Run Doctor` requires the GenAsset API and configured workspace token because the AI guidance runs through GenAsset.
 
 ## Token File
 
@@ -169,6 +206,14 @@ Smoke test:
 
 ```bash
 python scripts/smoke_import.py
+```
+
+Health and onboarding workflow regression tests:
+
+```bash
+python scripts/test_health.py
+python scripts/test_onboarding_workflows.py
+node --check js/genasset_importer.js
 ```
 
 Expected result:
