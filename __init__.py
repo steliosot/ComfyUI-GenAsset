@@ -4,6 +4,7 @@ from .nodes import (
     GenAssetCreateAsset,
     GenAssetCreateBranchVersion,
     GenAssetDeleteVersion,
+    GenAssetDisplayAny,
     GenAssetFindAssets,
     GenAssetForkAssetFromVersion,
     GenAssetLoadExactVersion,
@@ -30,6 +31,7 @@ except Exception as exc:
 NODE_CLASS_MAPPINGS = {
     "GenAssetTestConnection": GenAssetTestConnection,
     "GenAssetWorkflowAssistant": GenAssetWorkflowAssistant,
+    "GenAssetDisplayAny": GenAssetDisplayAny,
     "GenAssetSaveGeneration": GenAssetSaveGeneration,
     "GenAssetLoadVersion": GenAssetLoadVersion,
     "GenAssetLoadExactVersion": GenAssetLoadExactVersion,
@@ -52,6 +54,7 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "GenAssetTestConnection": "Test GenAsset Connection",
     "GenAssetWorkflowAssistant": "GenAsset Workflow Assistant",
+    "GenAssetDisplayAny": "Display Any From GenAsset",
     "GenAssetSaveGeneration": "Save To GenAsset",
     "GenAssetLoadVersion": "Load Asset From GenAsset",
     "GenAssetLoadExactVersion": "Load Version From GenAsset",

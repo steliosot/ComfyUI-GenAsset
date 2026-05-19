@@ -90,49 +90,84 @@
     },
     {
       "id": 2,
-      "type": "DisplayAny",
+      "type": "GenAssetDisplayAny",
       "pos": [
         850,
         -520
       ],
       "size": [
-        420,
-        230
+        460,
+        300
       ],
       "flags": {},
       "order": 1,
       "mode": 0,
       "inputs": [
         {
-          "localized_name": "input",
-          "name": "input",
-          "type": "*",
-          "link": 1
-        },
-        {
-          "localized_name": "mode",
-          "name": "mode",
-          "type": "COMBO",
+          "localized_name": "title",
+          "name": "title",
+          "type": "STRING",
           "widget": {
-            "name": "mode"
+            "name": "title"
           },
           "link": null
+        },
+        {
+          "localized_name": "fallback_text",
+          "name": "fallback_text",
+          "type": "STRING",
+          "widget": {
+            "name": "fallback_text"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "format",
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "max_characters",
+          "name": "max_characters",
+          "type": "INT",
+          "widget": {
+            "name": "max_characters"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "value",
+          "name": "value",
+          "type": "*",
+          "link": 1
         }
       ],
       "outputs": [
         {
-          "localized_name": "STRING",
-          "name": "STRING",
+          "localized_name": "value",
+          "name": "value",
+          "type": "*",
+          "links": null
+        },
+        {
+          "localized_name": "text",
+          "name": "text",
           "type": "STRING",
           "links": null
         }
       ],
       "properties": {
-        "Node name for S&R": "DisplayAny"
+        "Node name for S&R": "GenAssetDisplayAny"
       },
       "widgets_values": [
+        "Rename asset status",
+        "",
         "json",
-        ""
+        12000
       ]
     },
     {
@@ -166,7 +201,7 @@
       1,
       2,
       2,
-      0,
+      4,
       "STRING"
     ]
   ],

@@ -8,7 +8,7 @@ ComfyUI nodes for saving, loading, and versioning image generations in **GenAsse
 
 GenAsset keeps the output image together with the recipe (prompt, model, seed, sampler/scheduler, workflow JSON, metadata), so teams and agents can reproduce and reuse results reliably.
 
-Current package version: **v1.0.15**.
+Current package version: **v1.0.16**.
 
 ## Start Free
 

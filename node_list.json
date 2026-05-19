@@ -1,6 +1,7 @@
 {
   "GenAssetTestConnection": "Check that ComfyUI can reach GenAsset and that the workspace token is valid.",
   "GenAssetWorkflowAssistant": "Validate a ComfyUI workflow and suggest GenAsset asset names, tags, intent, notes, labels, and metadata.",
+  "GenAssetDisplayAny": "Display any GenAsset or ComfyUI value as readable text, with automatic JSON pretty printing.",
   "GenAssetSaveGeneration": "Save a generated image, workflow recipe, prompt, model, seed, and metadata to GenAsset.",
   "GenAssetLoadVersion": "Load an asset or version image and metadata from GenAsset.",
   "GenAssetLoadExactVersion": "Load one exact historical GenAsset version by version id.",

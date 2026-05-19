@@ -33,6 +33,14 @@ GENASSET_MANAGER_PACKAGE_ID = "genasset"
 _GENASSET_UPDATE_LOCK = threading.Lock()
 
 
+class GenAssetAnyType(str):
+    def __ne__(self, value: object) -> bool:
+        return False
+
+
+GENASSET_ANY = GenAssetAnyType("*")
+
+
 def _ensure_image_batch(image: torch.Tensor) -> torch.Tensor:
     if image.dim() == 3:
         image = image.unsqueeze(0)
@@ -908,6 +916,84 @@ def _single_line(value: Any, limit: int = 220) -> str:
     return text
 
 
+def _truncate_text(value: str, limit: int) -> tuple[str, bool]:
+    clean_limit = max(200, min(int(limit or 12000), 200000))
+    if len(value) <= clean_limit:
+        return value, False
+    suffix = f"\n\n... truncated {len(value) - clean_limit} characters ..."
+    return value[:clean_limit] + suffix, True
+
+
+def _json_safe_value(value: Any, depth: int = 0) -> Any:
+    if depth > 6:
+        return f"<{type(value).__name__}: maximum display depth reached>"
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, bytes):
+        return {"type": "bytes", "length": len(value), "preview": value[:96].decode("utf-8", errors="replace")}
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, torch.Tensor):
+        out: dict[str, Any] = {
+            "type": "torch.Tensor",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "device": str(value.device),
+        }
+        if value.numel() and value.numel() <= 32:
+            out["values"] = value.detach().cpu().tolist()
+        return out
+    if isinstance(value, np.ndarray):
+        out = {"type": "numpy.ndarray", "shape": list(value.shape), "dtype": str(value.dtype)}
+        if value.size and value.size <= 32:
+            out["values"] = value.tolist()
+        return out
+    if isinstance(value, Image.Image):
+        return {"type": "PIL.Image", "mode": value.mode, "size": list(value.size)}
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item, depth + 1) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        items = list(value)
+        out = [_json_safe_value(item, depth + 1) for item in items[:100]]
+        if len(items) > 100:
+            out.append(f"... {len(items) - 100} more items ...")
+        return out
+    return {"type": type(value).__name__, "repr": repr(value)}
+
+
+def _format_display_value(value: Any, mode: str, max_characters: int) -> dict[str, Any]:
+    requested_mode = str(mode or "auto").strip().lower()
+    if requested_mode not in {"auto", "text", "json", "repr"}:
+        requested_mode = "auto"
+
+    parsed_json = False
+    value_type = type(value).__name__
+    if isinstance(value, str):
+        text = value
+        if requested_mode in {"auto", "json"}:
+            stripped = value.strip()
+            if stripped:
+                try:
+                    text = json.dumps(json.loads(stripped), indent=2, ensure_ascii=False)
+                    parsed_json = True
+                    value_type = "json"
+                except Exception:
+                    if requested_mode == "json":
+                        text = value
+        elif requested_mode == "repr":
+            text = repr(value)
+    elif requested_mode == "repr":
+        text = repr(value)
+    else:
+        safe_value = _json_safe_value(value)
+        text = json.dumps(safe_value, indent=2, ensure_ascii=False)
+        parsed_json = isinstance(safe_value, (dict, list))
+        value_type = str(safe_value.get("type") or value_type) if isinstance(safe_value, dict) else value_type
+
+    text, truncated = _truncate_text(text, max_characters)
+    return {"text": text, "type": value_type, "is_json": parsed_json, "truncated": truncated}
+
+
 def _log_ok(node_name: str, **fields: Any) -> None:
     parts: list[str] = []
     for key, value in fields.items():
@@ -1688,6 +1774,59 @@ class GenAssetTestConnection:
             summary = f"ERROR: {status['error']}"
             normalized = json.dumps(status, indent=2)
             return {"ui": {"text": [summary]}, "result": ("", normalized, summary, "error", normalized)}
+
+
+class GenAssetDisplayAny:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "title": ("STRING", {"default": "GenAsset display", "tooltip": "Optional heading shown above the displayed value."}),
+                "fallback_text": (
+                    "STRING",
+                    {
+                        "default": "",
+                        "multiline": True,
+                        "tooltip": "Used when nothing is connected to value. Paste text or JSON here.",
+                    },
+                ),
+                "format": (["auto", "text", "json", "repr"], {"default": "auto"}),
+                "max_characters": ("INT", {"default": 12000, "min": 200, "max": 200000}),
+            },
+            "optional": {
+                "value": (GENASSET_ANY, {"tooltip": "Connect any GenAsset or ComfyUI output here."}),
+            },
+        }
+
+    RETURN_TYPES = (GENASSET_ANY, "STRING")
+    RETURN_NAMES = ("value", "text")
+    FUNCTION = "display"
+    CATEGORY = CATEGORY
+    OUTPUT_NODE = True
+
+    def display(self, title: str, fallback_text: str, format: str, max_characters: int, value: Any = None):
+        display_value = fallback_text if value is None else value
+        formatted = _format_display_value(display_value, format, max_characters)
+        clean_title = str(title or "GenAsset display").strip() or "GenAsset display"
+        text = formatted["text"]
+        ui_text = f"{clean_title}\n\n{text}" if clean_title else text
+        if formatted.get("truncated"):
+            ui_text += "\n\n(Display truncated. Increase max_characters to show more.)"
+        return {
+            "ui": {
+                "text": [ui_text],
+                "genasset_display": [
+                    {
+                        "title": clean_title,
+                        "text": text,
+                        "type": formatted.get("type") or "value",
+                        "is_json": bool(formatted.get("is_json")),
+                        "truncated": bool(formatted.get("truncated")),
+                    }
+                ],
+            },
+            "result": (display_value, text),
+        }
 
 
 class GenAssetWorkflowAssistant:
